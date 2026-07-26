@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SD Prompt Generator - Stable Diffusion 提示词生成器</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #1a1a1a; background: #f5f5f5; min-height: 100vh; overflow-x: hidden; }
+.widget-root { width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #fff; }
+.nav-bar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #e5e5e5; background: #fafafa; position: relative; z-index: 10; flex-wrap: wrap; gap: 8px; }
+.nav-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; user-select: none; }
+.nav-tabs { display: flex; gap: 4px; align-items: center; }
+.nav-tab { padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; border: none; background: transparent; color: #666; }
+.nav-tab:hover { background: #f0f0f0; }
+.nav-tab.active { background: #1a1a1a; color: #fff; }
+.nav-search { display: flex; align-items: center; gap: 8px; flex: 1; max-width: 400px; margin: 0 16px; min-width: 0; }
+.search-input { padding: 8px 14px; border-radius: 8px; border: 1px solid #e5e5e5; font-size: 14px; flex: 1; background: #fff; color: #1a1a1a; outline: none; transition: border-color 0.2s; }
+.search-input:focus { border-color: #1a1a1a; }
+.search-btn { padding: 8px 14px; border-radius: 8px; border: 1px solid #e5e5e5; background: #fff; cursor: pointer; font-size: 14px; transition: all 0.15s; }
+.search-btn:hover { background: #f0f0f0; }
+.toggle-wrapper { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #666; cursor: pointer; user-select: none; }
+.toggle-switch { position: relative; width: 36px; height: 20px; background: #ccc; border-radius: 10px; transition: background 0.2s; cursor: pointer; flex-shrink: 0; }
+.toggle-switch.on { background: #22c55e; }
+.toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.toggle-switch.on::after { transform: translateX(16px); }
+.main-content { flex: 1; display: flex; overflow: hidden; }
+.sidebar { width: 220px; border-right: 1px solid #e5e5e5; overflow-y: auto; padding: 12px; background: #fafafa; }
+.category-item { padding: 10px 14px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; transition: all 0.15s; color: #666; }
+.category-item:hover { background: #f0f0f0; color: #1a1a1a; }
+.category-item.active { background: #1a1a1a; color: #fff; }
+.category-item.hidden-cat { opacity: 0.5; font-style: italic; }
+.category-item.hidden-cat.active { opacity: 1; background: #666; }
+.category-count { font-size: 11px; padding: 2px 6px; border-radius: 10px; background: rgba(0,0,0,0.1); font-weight: 400; }
+.category-item.active .category-count { background: rgba(255,255,255,0.2); }
+.tag-area { flex: 1; overflow-y: auto; padding: 20px; }
+.tag-section-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.tag-section-title .color-dot { width: 10px; height: 10px; border-radius: 50%; }
+.tags-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+.tag-chip { padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.15s; border: 1px solid #e5e5e5; background: #fafafa; color: #1a1a1a; user-select: none; display: flex; align-items: center; gap: 6px; }
+.tag-chip:hover { border-color: #1a1a1a; transform: translateY(-1px); }
+.tag-chip.selected { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+.tag-chip .weight-badge { font-size: 10px; padding: 1px 5px; border-radius: 8px; background: rgba(255,255,255,0.2); display: none; }
+.tag-chip.selected .weight-badge { display: inline; }
+.search-results-title { font-size: 14px; color: #666; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e5; }
+.search-result-group { margin-bottom: 20px; }
+.search-result-group-header { font-size: 14px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.search-result-group-header .color-dot { width: 8px; height: 8px; border-radius: 50%; }
+.search-result-group-header .cat-name { color: #1a1a1a; }
+.search-result-group-header .cat-count { font-size: 12px; color: #999; font-weight: 400; }
+.preview-panel { width: 340px; border-left: 1px solid #e5e5e5; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: #fafafa; }
+.panel-title { font-size: 14px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+.prompt-box { flex: 1; min-height: 120px; padding: 14px; border-radius: 10px; border: 1px solid #e5e5e5; background: #fff; font-size: 14px; line-height: 1.6; resize: none; font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace; color: #1a1a1a; }
+.prompt-box:focus { outline: none; border-color: #1a1a1a; }
+.selected-tags-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; }
+.selected-tag-item { padding: 4px 10px; border-radius: 16px; font-size: 12px; background: #f0f0f0; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.15s; }
+.selected-tag-item:hover { background: #dc3545; color: #fff; }
+.btn-group { display: flex; gap: 8px; }
+.btn { padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid #e5e5e5; background: #fff; color: #1a1a1a; transition: all 0.15s; flex: 1; text-align: center; }
+.btn:hover { background: #f0f0f0; }
+.btn-primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-danger { color: #dc3545; border-color: #dc3545; }
+.btn-danger:hover { background: #dc3545; color: #fff; }
+.btn-warning { color: #f59e0b; border-color: #f59e0b; }
+.btn-warning:hover { background: #f59e0b; color: #fff; }
+.btn-success { color: #22c55e; border-color: #22c55e; }
+.btn-success:hover { background: #22c55e; color: #fff; }
+.admin-panel { padding: 24px; overflow-y: auto; }
+.admin-section { margin-bottom: 32px; }
+.admin-section-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+.form-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
+.form-input { padding: 10px 14px; border-radius: 8px; border: 1px solid #e5e5e5; font-size: 14px; flex: 1; min-width: 120px; background: #fff; color: #1a1a1a; }
+.form-input:focus { outline: none; border-color: #1a1a1a; }
+.form-select { padding: 10px 14px; border-radius: 8px; border: 1px solid #e5e5e5; font-size: 14px; min-width: 160px; background: #fff; color: #1a1a1a; }
+.textarea-batch { width: 100%; min-height: 180px; padding: 14px; border-radius: 10px; border: 1px solid #e5e5e5; font-size: 14px; font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace; resize: vertical; background: #fff; color: #1a1a1a; line-height: 1.6; }
+.textarea-batch:focus { outline: none; border-color: #1a1a1a; }
+.batch-hint { font-size: 12px; color: #999; margin-top: 6px; margin-bottom: 12px; }
+.category-card { padding: 14px 16px; border-radius: 10px; border: 1px solid #e5e5e5; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; background: #fff; }
+.category-card-info { display: flex; align-items: center; gap: 12px; }
+.category-color { width: 14px; height: 14px; border-radius: 4px; cursor: pointer; transition: transform 0.15s; }
+.category-color:hover { transform: scale(1.2); }
+.category-card-name { font-size: 15px; font-weight: 500; }
+.category-card-count { font-size: 13px; color: #999; }
+.category-card-actions { display: flex; gap: 6px; }
+.icon-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #e5e5e5; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #666; transition: all 0.15s; }
+.icon-btn:hover { background: #f0f0f0; color: #1a1a1a; }
+.icon-btn.delete:hover { background: #dc3545; color: #fff; border-color: #dc3545; }
+.tag-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tag-table th { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e5e5e5; font-weight: 600; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.tag-table td { padding: 10px 12px; border-bottom: 1px solid #e5e5e5; }
+.tag-table tr:hover td { background: #f0f0f0; }
+.tag-table .tag-name-cell { font-weight: 500; }
+.tag-table .tag-cat-cell { font-size: 12px; color: #999; }
+.weight-slider { display: flex; align-items: center; gap: 8px; }
+.weight-slider input[type="range"] { width: 80px; }
+.weight-value { font-size: 12px; font-family: 'SF Mono', Monaco, monospace; min-width: 36px; text-align: center; padding: 2px 6px; border-radius: 4px; background: #f0f0f0; }
+.empty-state { text-align: center; padding: 60px 20px; color: #ccc; }
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 10px; background: #1a1a1a; color: #fff; font-size: 14px; z-index: 1000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.search-box { padding: 10px 14px; border-radius: 10px; border: 1px solid #e5e5e5; font-size: 14px; width: 100%; margin-bottom: 12px; background: #fff; color: #1a1a1a; }
+.search-box:focus { outline: none; border-color: #1a1a1a; }
+.color-picker-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.color-option { width: 28px; height: 28px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; }
+.color-option:hover { transform: scale(1.1); }
+.color-option.selected { border-color: #1a1a1a; }
+.dup-panel { padding: 16px; border-radius: 10px; border: 1px solid #e5e5e5; background: #fff; margin-bottom: 16px; }
+.dup-panel-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.dup-group { margin-bottom: 12px; padding: 10px 12px; border-radius: 8px; background: #f5f5f5; }
+.dup-group-header { font-size: 13px; font-weight: 600; color: #dc3545; margin-bottom: 6px; }
+.dup-item { font-size: 13px; color: #666; padding: 2px 0; display: flex; align-items: center; gap: 8px; }
+.dup-item .dup-cat { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #eee; }
+.dup-empty { color: #22c55e; font-size: 14px; padding: 8px 0; }
+.stats-row { display: flex; gap: 16px; margin-bottom: 16px; }
+.stat-card { padding: 14px 20px; border-radius: 10px; border: 1px solid #e5e5e5; background: #fff; flex: 1; text-align: center; }
+.stat-value { font-size: 28px; font-weight: 700; color: #1a1a1a; }
+.stat-label { font-size: 12px; color: #999; margin-top: 4px; }
+.storage-panel { padding: 16px; border-radius: 10px; border: 1px solid #e5e5e5; background: #fff; margin-bottom: 16px; }
+.storage-info { font-size: 13px; color: #666; margin-bottom: 12px; line-height: 1.6; }
+.storage-info code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', Monaco, monospace; font-size: 12px; }
+.storage-status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; }
+.status-dot.ok { background: #22c55e; }
+.status-dot.warn { background: #f59e0b; }
+.status-dot.err { background: #dc3545; }
+.file-input-wrapper { position: relative; display: inline-block; }
+.file-input-wrapper input[type="file"] { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.hidden-badge { font-size: 10px; padding: 1px 5px; border-radius: 4px; background: #f59e0b; color: #fff; margin-left: 4px; }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+.modal-content { background: #fff; border-radius: 12px; padding: 24px; max-width: 480px; width: 90%; max-height: 80vh; overflow-y: auto; }
+.modal-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+.modal-body { margin-bottom: 16px; }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; }
+.admin-unlock { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.admin-unlock input { padding: 10px 14px; border-radius: 8px; border: 1px solid #e5e5e5; font-size: 14px; flex: 1; min-width: 120px; max-width: 300px; }
+.admin-unlock .btn { flex: 0 0 auto; padding: 10px 20px; }
+.tag-filter-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
+.tag-filter-row .form-select { min-width: 180px; }
+
+/* [MODIFIED] 新增：只读模式提示样式 */
+.readonly-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 500; }
+.readonly-badge svg { width: 14px; height: 14px; }
+.admin-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; background: #dcfce7; color: #166534; font-size: 12px; font-weight: 500; }
+
+/* [MODIFIED] 新增：加载状态 */
+.loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 3000; }
+.loading-spinner { width: 40px; height: 40px; border: 3px solid #e5e5e5; border-top-color: #1a1a1a; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { margin-top: 16px; font-size: 14px; color: #666; }
+
+@media (max-width: 900px) {
+  .sidebar { width: 180px; }
+  .preview-panel { width: 280px; }
+  .nav-search { max-width: 250px; }
+}
+
+@media (max-width: 700px) {
+  .nav-search { max-width: none; margin: 0; width: 100%; order: 3; }
+  .nav-bar { padding: 8px 12px; }
+  .nav-title { font-size: 14px; }
+  .nav-tabs { order: 2; }
+  .main-content { flex-direction: column; }
+  .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e5e5e5; max-height: 200px; }
+  .preview-panel { width: 100%; border-left: none; border-top: 1px solid #e5e5e5; }
+  .admin-panel { padding: 16px; }
+  .stats-row { flex-direction: column; }
+  .form-row { flex-direction: column; align-items: stretch; }
+  .admin-unlock { flex-direction: column; align-items: stretch; }
+  .admin-unlock input { max-width: 100%; }
+  .admin-unlock .btn { width: 100%; }
+  .tag-filter-row { flex-direction: column; align-items: stretch; }
+  .tag-filter-row .form-select { width: 100%; }
+}
+</style>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div class="widget-root" id="app">
+  <!-- [MODIFIED] 新增：加载遮罩 -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loading-text">正在连接 Supabase...</div>
+  </div>
+
+  <div class="nav-bar">
+    <div class="nav-title" id="nav-title" onclick="handleTitleClick()" oncontextmenu="handleTitleLongPress(event)">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>
+      SD Prompt Generator
+    </div>
+    <div class="nav-search" id="nav-search-box">
+      <input type="text" class="search-input" id="global-search" placeholder="搜索标签..." oninput="onGlobalSearch(this.value)">
+      <button class="search-btn" onclick="clearGlobalSearch()">&#x2715;</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <!-- [MODIFIED] 新增：权限状态显示 -->
+      <div id="auth-status" style="display:none;">
+        <span class="readonly-badge" id="readonly-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          只读模式
+        </span>
+        <span class="admin-badge" id="admin-badge" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          管理员
+        </span>
+      </div>
+      <div class="nav-tabs">
+        <button class="nav-tab active" data-tab="generator" onclick="switchTab('generator')">生成器</button>
+        <button class="nav-tab" data-tab="admin" id="admin-tab-btn" style="display:none;" onclick="switchTab('admin')">后台管理</button>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="main-content" id="generator-view">
+    <div class="sidebar" id="category-sidebar">
+      <div style="padding-bottom:12px;border-bottom:1px solid #e5e5e5;margin-bottom:8px;">
+        <input type="text" class="search-box" id="sidebar-search" placeholder="搜索标签..." oninput="onSidebarSearch(this.value)" style="margin-bottom:8px;font-size:13px;padding:8px 12px;">
+        <label class="toggle-wrapper" id="show-hidden-toggle-wrapper" style="display:none;font-size:12px;">
+          <div class="toggle-switch" id="show-hidden-toggle" onclick="toggleShowHidden()"></div>
+          <span>显示隐藏分类</span>
+        </label>
+      </div>
+      <div id="category-list-container"></div>
+    </div>
+    <div class="tag-area" id="tag-area"></div>
+    <div class="preview-panel">
+      <div class="panel-title">提示词</div>
+      <textarea class="prompt-box" id="prompt-text" placeholder="点击左侧标签构建提示词..."></textarea>
+      <div class="panel-title">已选标签</div>
+      <div class="selected-tags-list" id="selected-tags-list"></div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="copyPrompt()">复制</button>
+        <button class="btn" onclick="clearAll()">清空</button>
+      </div>
+      <div class="panel-title" style="margin-top:8px;">快捷操作</div>
+      <div class="btn-group">
+        <button class="btn" onclick="addWeightToAll(0.1)">全部+0.1</button>
+        <button class="btn" onclick="addWeightToAll(-0.1)">全部-0.1</button>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="admin-panel" id="admin-view" style="display:none;">
+    <div class="admin-section" id="admin-lock-section">
+      <div class="admin-section-title">管理员验证</div>
+      <div style="font-size:13px;color:#666;margin-bottom:12px;">输入管理密钥以解锁后台管理功能。密钥存储在 Supabase 中，请妥善保管。</div>
+      <div class="admin-unlock">
+        <input type="password" id="admin-key" placeholder="输入管理密钥">
+        <button class="btn btn-primary" onclick="unlockAdmin()">解锁</button>
+      </div>
+      <div style="font-size:13px;color:#999;margin-top:8px;">提示：首次使用请在下方「设置管理密钥」中配置密钥</div>
+    </div>
+
+    <div id="admin-content" style="display:none;">
+      <div class="admin-section">
+        <div class="admin-section-title">设置管理密钥</div>
+        <div style="font-size:13px;color:#666;margin-bottom:12px;">设置或修改管理员密钥。密钥保存在 Supabase 云端。</div>
+        <div class="form-row">
+          <input type="password" class="form-input" id="new-admin-key" placeholder="输入新密钥" style="min-width:200px;">
+          <input type="password" class="form-input" id="confirm-admin-key" placeholder="确认新密钥" style="min-width:200px;">
+          <button class="btn btn-primary" onclick="saveAdminKey()" style="flex:0 0 auto;">保存密钥</button>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">Supabase 配置</div>
+        <div class="storage-panel">
+          <div class="storage-info">
+            <div class="storage-status">
+              <span class="status-dot" id="sb-status-dot"></span>
+              <span id="storage-status-text">未连接</span>
+            </div>
+            <br><br>
+            <div>当前使用 <b>Supabase 云存储</b>，数据保存在云端，所有用户共享同一份数据。</div>
+            <div style="margin-top:12px;padding:12px;border-radius:8px;background:#f5f5f5;">
+              <div style="font-weight:600;margin-bottom:8px;">Supabase 配置</div>
+              <div class="form-row">
+                <input type="text" class="form-input" id="sb-url" placeholder="Supabase URL" style="min-width:260px;">
+                <input type="password" class="form-input" id="sb-key" placeholder="Supabase Anon Key" style="min-width:260px;">
+                <button class="btn btn-primary" onclick="connectSupabase()" style="flex:0 0 auto;">连接</button>
+              </div>
+              <div style="font-size:12px;color:#999;margin-top:6px;">
+                需要在 Supabase 创建表: <code>CREATE TABLE sd_data (id INT PRIMARY KEY, data JSONB); INSERT INTO sd_data VALUES (1, '{}'::jsonb);</code>
+              </div>
+              <div style="font-size:12px;color:#999;margin-top:6px;padding:8px;border-radius:6px;background:#fef3c7;">
+                <b>安全建议：</b>建议为此表启用 RLS 并设置策略，限制只有管理员能修改数据。<br>
+                <code>ALTER TABLE sd_data ENABLE ROW LEVEL SECURITY;</code>
+              </div>
+              <div id="sb-status" style="margin-top:8px;font-size:13px;"></div>
+            </div>
+            <br>
+            <b>适用于 Vercel / Netlify / Cloudflare Pages 等 Serverless 部署。</b>
+          </div>
+          <div class="form-row">
+            <button class="btn btn-primary" onclick="exportData()">导出 JSON</button>
+            <div class="file-input-wrapper">
+              <button class="btn btn-success">导入 JSON</button>
+              <input type="file" id="import-file" accept=".json" onchange="importData(this)">
+            </div>
+            <button class="btn btn-danger" onclick="resetToDefault()">重置为默认</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-value" id="stat-cats">0</div><div class="stat-label">分类数</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-tags">0</div><div class="stat-label">标签总数</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-dups">0</div><div class="stat-label">重复标签</div></div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">查重检测</div>
+        <div class="form-row">
+          <button class="btn btn-primary" onclick="runDuplicateCheck()">运行查重</button>
+          <button class="btn btn-warning" onclick="mergeDuplicates()">自动合并重复</button>
+        </div>
+        <div id="dup-results"></div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">分类管理</div>
+        <div class="form-row">
+          <input type="text" class="form-input" id="new-cat-name" placeholder="分类名称（如：质量词）">
+          <div class="color-picker-row" id="color-picker"></div>
+          <button class="btn btn-primary" onclick="addCategory()" style="flex:0 0 auto;">+ 添加分类</button>
+        </div>
+        <div id="category-list"></div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">分类合并</div>
+        <div class="form-row">
+          <select class="form-select" id="merge-source-select"></select>
+          <span style="font-size:14px;color:#666;">合并到 &rarr;</span>
+          <select class="form-select" id="merge-target-select"></select>
+          <button class="btn btn-warning" onclick="mergeCategories()">合并分类</button>
+        </div>
+        <div style="font-size:13px;color:#999;">将源分类的所有标签移动到目标分类，然后删除源分类。已选标签会自动更新。</div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">批量添加标签（支持查重）</div>
+        <div class="form-row">
+          <select class="form-select" id="batch-cat-select"></select>
+          <label style="font-size:13px;color:#666;"><input type="checkbox" id="skip-dup-check" style="margin-right:4px;"> 跳过已存在的标签</label>
+        </div>
+        <textarea class="textarea-batch" id="batch-tags" placeholder="cat 猫
+dog 狗
+bird 鸟
+fish 鱼
+
+格式：英文标签 + 空格 + 中文说明（可选）
+每行一个，支持批量粘贴
+会自动检测并跳过已存在的重复标签"></textarea>
+        <div class="batch-hint">支持格式：英文标签 + 空格 + 中文说明。每行一个标签，回车换行。添加时会自动查重。</div>
+        <button class="btn btn-primary" onclick="batchAddTags()">批量添加</button>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">标签列表（按分类管理）</div>
+        <div class="tag-filter-row">
+          <select class="form-select" id="tag-filter-cat" onchange="renderTagTable()">
+            <option value="">全部分类</option>
+          </select>
+          <input type="text" class="form-input" id="tag-search" placeholder="搜索标签..." oninput="renderTagTable()" style="min-width:200px;">
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="tag-table" id="tag-table">
+            <thead><tr><th>标签</th><th>分类</th><th>权重</th><th>操作</th></tr></thead>
+            <tbody id="tag-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+<script>
+
+// [MODIFIED] 删除：移除了本地存储相关常量
+const ADMIN_KEY_STORAGE = 'sd_admin_key_hash';
+const SB_TABLE = 'sd_data';
+const SB_ROW_ID = 1;
+
+// [MODIFIED] 新增：Supabase 配置（硬编码或从环境变量读取）
+// 部署到 Vercel 时，可以通过环境变量注入这些值
+const DEFAULT_SB_URL = '';
+const DEFAULT_SB_KEY = '';
+
+let supabaseClient = null;
+let isConnected = false;
+let isAdminUnlocked = false;
+
+let categories = [], tags = [], selectedTags = new Map();
+let activeCategoryId = '', currentView = 'generator';
+let duplicateCache = null, showHiddenCategories = false;
+let globalSearchQuery = '', sidebarSearchQuery = '';
+
+const COLORS = [
+  '#3b82f6', '#ef4444', '#22c55e', '#a855f7', '#f59e0b',
+  '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#6366f1',
+  '#8b5cf6', '#14b8a6', '#f43f5e', '#d946ef', '#0ea5e9',
+  '#eab308', '#f97316', '#10b981', '#64748b', '#b91c1c',
+  '#1d4ed8', '#047857', '#7c3aed', '#c2410c', '#be185d'
+];
+let selectedColor = COLORS[0];
+
+/* [MODIFIED] 新增：简单的哈希函数用于本地验证 */
+function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash.toString(16);
+}
+
+/* [MODIFIED] 修改：从 Supabase 获取管理员密钥哈希 */
+async function getStoredAdminKeyHash() {
+  if (!supabaseClient) return '';
+  try {
+    const { data, error } = await supabaseClient
+      .from(SB_TABLE)
+      .select('data')
+      .eq('id', SB_ROW_ID)
+      .single();
+    if (error) return '';
+    const cloudData = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
+    return cloudData.adminKeyHash || '';
+  } catch (e) { return ''; }
+}
+
+/* [MODIFIED] 修改：保存管理员密钥到 Supabase */
+async function saveAdminKeyToCloud(keyHash) {
+  if (!supabaseClient) return false;
+  try {
+    const { data: existing } = await supabaseClient
+      .from(SB_TABLE)
+      .select('data')
+      .eq('id', SB_ROW_ID)
+      .single();
+
+    let cloudData = {};
+    if (existing && existing.data) {
+      cloudData = typeof existing.data === 'string' ? JSON.parse(existing.data) : existing.data;
+    }
+    cloudData.adminKeyHash = keyHash;
+
+    await supabaseClient.from(SB_TABLE).upsert({ id: SB_ROW_ID, data: cloudData });
+    return true;
+  } catch (e) { return false; }
+}
+
+function getAdminKeyHash() {
+  return localStorage.getItem(ADMIN_KEY_STORAGE) || '';
+}
+
+/* [MODIFIED] 修改：保存密钥时同时保存到云端 */
+async function saveAdminKey() {
+  const newKey = document.getElementById('new-admin-key').value.trim();
+  const confirmKey = document.getElementById('confirm-admin-key').value.trim();
+  if (!newKey) { showToast('请输入新密钥'); return; }
+  if (newKey !== confirmKey) { showToast('两次输入的密钥不一致'); return; }
+
+  const keyHash = simpleHash(newKey);
+  localStorage.setItem(ADMIN_KEY_STORAGE, keyHash);
+
+  const saved = await saveAdminKeyToCloud(keyHash);
+  if (saved) {
+    document.getElementById('new-admin-key').value = '';
+    document.getElementById('confirm-admin-key').value = '';
+    showToast('管理密钥已保存到云端');
+  } else {
+    showToast('密钥已保存到本地，但云端保存失败');
+  }
+}
+
+let titleClickCount = 0;
+let titleClickTimer = null;
+function handleTitleClick() {
+  titleClickCount++;
+  if (titleClickTimer) clearTimeout(titleClickTimer);
+  titleClickTimer = setTimeout(function() { titleClickCount = 0; }, 3000);
+  if (titleClickCount >= 5) {
+    titleClickCount = 0;
+    revealAdminTab();
+    showToast('管理员入口已解锁');
+    switchTab('admin');
+  }
+}
+function handleTitleLongPress(e) {
+  e.preventDefault();
+  revealAdminTab();
+  showToast('管理员入口已解锁');
+  return false;
+}
+function revealAdminTab() {
+  const btn = document.getElementById('admin-tab-btn');
+  if (btn) btn.style.display = 'inline-block';
+}
+
+/* [MODIFIED] 修改：加载数据改为从 Supabase */
+async function loadData() {
+  if (!supabaseClient) {
+    showLoading('请先配置 Supabase 连接');
+    return;
+  }
+
+  try {
+    showLoading('正在从 Supabase 加载数据...');
+    const { data, error } = await supabaseClient
+      .from(SB_TABLE)
+      .select('data')
+      .eq('id', SB_ROW_ID)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        await initDefaultData();
+      } else {
+        throw error;
+      }
+    } else if (data && data.data) {
+      const cloudData = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
+      if (cloudData.categories && Array.isArray(cloudData.categories) && cloudData.categories.length > 0) {
+        categories = cloudData.categories;
+        tags = cloudData.tags || [];
+        categories.forEach(function(c) { if (typeof c.hidden === 'undefined') c.hidden = false; });
+        activeCategoryId = categories[0] ? categories[0].id : '';
+      } else {
+        await initDefaultData();
+      }
+    } else {
+      await initDefaultData();
+    }
+
+    hideLoading();
+    renderAll(); updateStats(); updateHiddenToggleVisibility();
+    updateConnectionStatus(true);
+  } catch (e) {
+    console.error('Load data error:', e);
+    showLoading('加载失败: ' + e.message + '，请检查 Supabase 配置');
+    updateConnectionStatus(false, e.message);
+  }
+}
+
+/* [MODIFIED] 新增：初始化默认数据到 Supabase */
+async function initDefaultData() {
+  categories = JSON.parse(JSON.stringify(DEFAULT_DATA.categories));
+  tags = JSON.parse(JSON.stringify(DEFAULT_DATA.tags));
+  activeCategoryId = categories[0] ? categories[0].id : '';
+  await saveToSupabase();
+}
+
+/* [MODIFIED] 修改：saveData 只保存到 Supabase */
+async function saveData() {
+  if (!supabaseClient) {
+    showToast('未连接到 Supabase，无法保存');
+    return false;
+  }
+  return await saveToSupabase();
+}
+
+async function saveToSupabase() {
+  if (!supabaseClient) return false;
+  try {
+    const { data: existing } = await supabaseClient
+      .from(SB_TABLE)
+      .select('data')
+      .eq('id', SB_ROW_ID)
+      .single();
+
+    let cloudData = {};
+    if (existing && existing.data) {
+      cloudData = typeof existing.data === 'string' ? JSON.parse(existing.data) : existing.data;
+    }
+
+    cloudData.categories = categories;
+    cloudData.tags = tags;
+    cloudData.savedAt = new Date().toISOString();
+
+    await supabaseClient.from(SB_TABLE).upsert({ id: SB_ROW_ID, data: cloudData });
+    return true;
+  } catch (e) {
+    console.error('Supabase save error', e);
+    showToast('保存失败: ' + e.message);
+    return false;
+  }
+}
+
+/* [MODIFIED] 修改：连接 Supabase */
+async function connectSupabase() {
+  let url = document.getElementById('sb-url').value.trim();
+  let key = document.getElementById('sb-key').value.trim();
+
+  if (!url && DEFAULT_SB_URL) url = DEFAULT_SB_URL;
+  if (!key && DEFAULT_SB_KEY) key = DEFAULT_SB_KEY;
+
+  const statusEl = document.getElementById('sb-status');
+  const dotEl = document.getElementById('sb-status-dot');
+
+  if (!url || !key) { 
+    statusEl.innerHTML = '<span style="color:#dc3545;">请填写 URL 和 Key</span>'; 
+    dotEl.className = 'status-dot err';
+    return; 
+  }
+
+  statusEl.innerHTML = '<span style="color:#666;">连接中...</span>';
+  dotEl.className = 'status-dot warn';
+
+  try {
+    supabaseClient = supabase.createClient(url, key);
+    const { data, error } = await supabaseClient.from(SB_TABLE).select('data').eq('id', SB_ROW_ID).single();
+
+    if (error && error.code !== 'PGRST116') { throw error; }
+
+    isConnected = true;
+
+    if (data && data.data) {
+      const cloudData = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
+      if (cloudData.categories && cloudData.tags) {
+        categories = cloudData.categories;
+        tags = cloudData.tags;
+        categories.forEach(function(c) { if (typeof c.hidden === 'undefined') c.hidden = false; });
+        selectedTags.clear();
+        activeCategoryId = getVisibleCategories()[0] ? getVisibleCategories()[0].id : (categories[0] ? categories[0].id : '');
+        renderAll(); updateStats(); updateHiddenToggleVisibility();
+        statusEl.innerHTML = '<span style="color:#22c55e;">已连接并从云端加载数据</span>';
+        dotEl.className = 'status-dot ok';
+        showToast('Supabase 已连接，数据已同步');
+        hideLoading();
+      } else {
+        await initDefaultData();
+        statusEl.innerHTML = '<span style="color:#22c55e;">已连接，已创建默认数据</span>';
+        dotEl.className = 'status-dot ok';
+        showToast('Supabase 已连接，已创建默认数据');
+        hideLoading();
+      }
+    } else {
+      await initDefaultData();
+      statusEl.innerHTML = '<span style="color:#22c55e;">已连接，已创建云端数据</span>';
+      dotEl.className = 'status-dot ok';
+      showToast('Supabase 已连接，已创建云端数据');
+      hideLoading();
+    }
+
+    localStorage.setItem('sd_sb_url', url);
+    localStorage.setItem('sd_sb_key', key);
+
+  } catch (err) {
+    statusEl.innerHTML = '<span style="color:#dc3545;">连接失败: ' + err.message + '</span>';
+    dotEl.className = 'status-dot err';
+    supabaseClient = null;
+    isConnected = false;
+    showToast('Supabase 连接失败: ' + err.message);
+    showLoading('连接失败: ' + err.message);
+  }
+}
+
+/* [MODIFIED] 新增：自动连接 */
+async function autoConnect() {
+  const savedUrl = localStorage.getItem('sd_sb_url');
+  const savedKey = localStorage.getItem('sd_sb_key');
+
+  if (savedUrl && savedKey) {
+    document.getElementById('sb-url').value = savedUrl;
+    document.getElementById('sb-key').value = savedKey;
+    await connectSupabase();
+  } else if (DEFAULT_SB_URL && DEFAULT_SB_KEY) {
+    await connectSupabase();
+  } else {
+    showLoading('请配置 Supabase 连接');
+    document.getElementById('sb-status').innerHTML = '<span style="color:#f59e0b;">请填写 Supabase 配置信息</span>';
+    document.getElementById('sb-status-dot').className = 'status-dot warn';
+  }
+}
+
+/* [MODIFIED] 新增：加载状态控制 */
+function showLoading(text) {
+  const overlay = document.getElementById('loading-overlay');
+  const textEl = document.getElementById('loading-text');
+  if (overlay) overlay.style.display = 'flex';
+  if (textEl) textEl.textContent = text || '加载中...';
+}
+function hideLoading() {
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+/* [MODIFIED] 新增：更新连接状态 */
+function updateConnectionStatus(connected, msg) {
+  const dotEl = document.getElementById('sb-status-dot');
+  const textEl = document.getElementById('storage-status-text');
+  if (dotEl) dotEl.className = connected ? 'status-dot ok' : 'status-dot err';
+  if (textEl) textEl.textContent = connected ? '已连接' : (msg || '未连接');
+}
+
+/* [MODIFIED] 修改：重置为默认 */
+async function resetToDefault() {
+  if (!confirm('确定重置为默认数据？所有自定义的分类和标签将被清除。')) return;
+  categories = JSON.parse(JSON.stringify(DEFAULT_DATA.categories));
+  tags = JSON.parse(JSON.stringify(DEFAULT_DATA.tags));
+  selectedTags.clear();
+  activeCategoryId = categories[0] ? categories[0].id : '';
+  await saveData();
+  renderAll(); updateStats(); showToast('已重置为默认数据');
+}
+
+function exportData() {
+  const data = { categories: categories, tags: tags, exportTime: new Date().toISOString(), version: '2.0' };
+  const json = JSON.stringify(data, null, 2);
+  const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
+  const a = document.createElement('a');
+  a.href = dataUri;
+  a.download = 'sd-prompt-data-' + Date.now() + '.json';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  try { a.click(); showToast('数据已导出'); }
+  catch (e) { window.open(dataUri, '_blank'); showToast('数据已导出（新窗口打开）'); }
+  setTimeout(function() { if (a.parentNode) document.body.removeChild(a); }, 100);
+}
+
+/* [MODIFIED] 修改：导入数据 */
+async function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.categories || !Array.isArray(data.categories)) { showToast('文件格式错误'); return; }
+      categories = data.categories; tags = data.tags || [];
+      categories.forEach(function(c) { if (typeof c.hidden === 'undefined') c.hidden = false; });
+      selectedTags.clear();
+      activeCategoryId = getVisibleCategories()[0] ? getVisibleCategories()[0].id : (categories[0] ? categories[0].id : '');
+      await saveData();
+      renderAll(); updateStats();
+      showToast('成功导入 ' + categories.length + ' 个分类，' + tags.length + ' 个标签');
+    } catch (err) { showToast('导入失败：' + err.message); }
+  };
+  reader.readAsText(file); input.value = '';
+}
+
+async function init() {
+  renderColorPicker();
+  updateHiddenToggleVisibility();
+  await autoConnect();
+}
+
+function renderAll() { renderSidebar(); renderTags(); renderSelectedTags(); updatePrompt(); renderAdmin(); }
+
+function updateStats() {
+  document.getElementById('stat-cats').textContent = categories.length;
+  document.getElementById('stat-tags').textContent = tags.length;
+  const dups = findDuplicates();
+  document.getElementById('stat-dups').textContent = dups.totalDupCount;
+}
+
+function findDuplicates() {
+  const nameMap = new Map(), dupGroups = [];
+  let totalDupCount = 0;
+  tags.forEach(function(tag) {
+    const key = normalizeTagName(tag.name);
+    if (!nameMap.has(key)) nameMap.set(key, []);
+    nameMap.get(key).push(tag);
+  });
+  nameMap.forEach(function(group, key) {
+    if (group.length > 1) { dupGroups.push({ key: key, tags: group, count: group.length }); totalDupCount += group.length; }
+  });
+  return { dupGroups: dupGroups, totalDupCount: totalDupCount };
+}
+function normalizeTagName(name) { return name.toLowerCase().trim().replace(/\s+/g, ' '); }
+
+function runDuplicateCheck() {
+  const result = findDuplicates();
+  duplicateCache = result;
+  const container = document.getElementById('dup-results');
+  if (result.dupGroups.length === 0) { container.innerHTML = '<div class="dup-empty">未发现重复标签，数据很干净！</div>'; updateStats(); return; }
+  let html = '<div class="dup-panel"><div class="dup-panel-title">发现 ' + result.dupGroups.length + ' 组重复，共 ' + result.totalDupCount + ' 个标签</div>';
+  result.dupGroups.forEach(function(group) {
+    html += '<div class="dup-group"><div class="dup-group-header">"' + group.key + '" — ' + group.count + ' 个重复</div>';
+    group.tags.forEach(function(tag) {
+      const cat = categories.find(function(c) { return c.id === tag.catId; });
+      html += '<div class="dup-item"><span>' + tag.name + (tag.cn ? ' (' + tag.cn + ')' : '') + '</span><span class="dup-cat" style="background:' + (cat ? cat.color + '20' : '#eee') + ';color:' + (cat ? cat.color : '#666') + '">' + (cat ? cat.name : '未分类') + '</span></div>';
+    });
+    html += '</div>';
+  });
+  html += '</div>'; container.innerHTML = html; updateStats();
+}
+
+async function mergeDuplicates() {
+  const result = findDuplicates();
+  if (result.dupGroups.length === 0) { showToast('没有重复标签需要合并'); return; }
+  let merged = 0;
+  result.dupGroups.forEach(function(group) {
+    const removeIds = group.tags.slice(1).map(function(t) { return t.id; });
+    removeIds.forEach(function(id) { if (selectedTags.has(id)) selectedTags.delete(id); });
+    tags = tags.filter(function(t) { return !removeIds.includes(t.id); });
+    merged += removeIds.length;
+  });
+  await saveData(); renderAll(); updateStats();
+  document.getElementById('dup-results').innerHTML = '<div class="dup-empty">重复标签已自动合并</div>';
+  showToast('已合并 ' + merged + ' 个重复标签');
+}
+
+function getVisibleCategories() {
+  if (showHiddenCategories) return categories;
+  return categories.filter(function(c) { return !c.hidden; });
+}
+function hasHiddenCategories() { return categories.some(function(c) { return c.hidden; }); }
+
+function updateHiddenToggleVisibility() {
+  const wrapper = document.getElementById('show-hidden-toggle-wrapper');
+  if (hasHiddenCategories()) { wrapper.style.display = 'flex'; }
+  else { wrapper.style.display = 'none'; showHiddenCategories = false; document.getElementById('show-hidden-toggle').classList.remove('on'); }
+}
+
+function toggleShowHidden() {
+  showHiddenCategories = !showHiddenCategories;
+  document.getElementById('show-hidden-toggle').classList.toggle('on', showHiddenCategories);
+  const visible = getVisibleCategories();
+  const currentCat = categories.find(function(c) { return c.id === activeCategoryId; });
+  if (currentCat && currentCat.hidden && !showHiddenCategories) activeCategoryId = visible[0] ? visible[0].id : '';
+  renderSidebar(); renderTags();
+}
+
+function renderSidebar() {
+  const container = document.getElementById('category-list-container');
+  const visibleCats = getVisibleCategories();
+  if (visibleCats.length === 0) { container.innerHTML = '<div class="empty-state">暂无分类</div>'; return; }
+  container.innerHTML = visibleCats.map(function(cat) {
+    const count = tags.filter(function(t) { return t.catId === cat.id; }).length;
+    const isHidden = cat.hidden;
+    return '<div class="category-item ' + (cat.id === activeCategoryId ? 'active' : '') + ' ' + (isHidden ? 'hidden-cat' : '') + '" onclick="selectCategory('' + cat.id + '')"><span>' + cat.name + (isHidden ? '<span class="hidden-badge">隐</span>' : '') + '</span><span class="category-count">' + count + '</span></div>';
+  }).join('');
+}
+
+function renderTags() {
+  const area = document.getElementById('tag-area');
+  if (globalSearchQuery.trim()) { renderSearchResults(area); return; }
+  const cat = categories.find(function(c) { return c.id === activeCategoryId; });
+  if (!cat) { area.innerHTML = '<div class="empty-state">请选择一个分类</div>'; return; }
+  const catTags = tags.filter(function(t) { return t.catId === activeCategoryId; });
+  let html = '<div class="tag-section-title"><span class="color-dot" style="background:' + cat.color + '"></span>' + cat.name + '<span style="font-size:13px;font-weight:400;color:#999;">(' + catTags.length + ' 个标签)</span></div>';
+  html += '<div class="tags-grid">';
+  catTags.forEach(function(tag) {
+    const isSelected = selectedTags.has(tag.id);
+    const weight = selectedTags.get(tag.id) || 1.0;
+    const displayName = tag.cn ? tag.name + ' (' + tag.cn + ')' : tag.name;
+    html += '<div class="tag-chip ' + (isSelected ? 'selected' : '') + '" onclick="toggleTag('' + tag.id + '')" oncontextmenu="adjustWeight(event, ' + tag.id + '');return false;">' + displayName + (isSelected ? '<span class="weight-badge">' + weight.toFixed(1) + '</span>' : '') + '</div>';
+  });
+  html += '</div>'; area.innerHTML = html;
+}
+
+function renderSearchResults(area) {
+  const query = globalSearchQuery.toLowerCase().trim();
+  if (!query) { renderTags(); return; }
+  const results = tags.filter(function(t) {
+    return t.name.toLowerCase().includes(query) || (t.cn && t.cn.toLowerCase().includes(query));
+  });
+  if (results.length === 0) { area.innerHTML = '<div class="empty-state">未找到包含 "' + escapeHtml(globalSearchQuery) + '" 的标签</div>'; return; }
+  const grouped = {};
+  results.forEach(function(tag) {
+    const cat = categories.find(function(c) { return c.id === tag.catId; });
+    const catName = cat ? cat.name : '未分类';
+    const catColor = cat ? cat.color : '#999';
+    const catId = cat ? cat.id : 'unknown';
+    if (!grouped[catId]) grouped[catId] = { catName: catName, catColor: catColor, tags: [] };
+    grouped[catId].tags.push(tag);
+  });
+  let html = '<div class="search-results-title">搜索 "' + escapeHtml(globalSearchQuery) + '" — 找到 ' + results.length + ' 个结果</div>';
+  Object.entries(grouped).forEach(function(entry) {
+    const catId = entry[0], group = entry[1];
+    html += '<div class="search-result-group">';
+    html += '<div class="search-result-group-header"><span class="color-dot" style="background:' + group.catColor + '"></span><span class="cat-name">' + group.catName + '</span><span class="cat-count">' + group.tags.length + ' 个</span></div>';
+    html += '<div class="tags-grid">';
+    group.tags.forEach(function(tag) {
+      const isSelected = selectedTags.has(tag.id);
+      const weight = selectedTags.get(tag.id) || 1.0;
+      const displayName = tag.cn ? tag.name + ' (' + tag.cn + ')' : tag.name;
+      html += '<div class="tag-chip ' + (isSelected ? 'selected' : '') + '" onclick="toggleTag('' + tag.id + '')" oncontextmenu="adjustWeight(event, ' + tag.id + '');return false;" title="分类: ' + group.catName + '">' + displayName + (isSelected ? '<span class="weight-badge">' + weight.toFixed(1) + '</span>' : '') + '</div>';
+    });
+    html += '</div></div>';
+  });
+  area.innerHTML = html;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function onGlobalSearch(value) {
+  globalSearchQuery = value;
+  renderTags();
+}
+function clearGlobalSearch() {
+  document.getElementById('global-search').value = '';
+  globalSearchQuery = '';
+  renderTags();
+}
+
+function onSidebarSearch(value) {
+  sidebarSearchQuery = value.toLowerCase().trim();
+  renderSidebar();
+}
+
+function renderSelectedTags() {
+  const container = document.getElementById('selected-tags-list');
+  if (selectedTags.size === 0) { container.innerHTML = '<span style="color:#ccc;font-size:13px;">未选择任何标签</span>'; return; }
+  container.innerHTML = Array.from(selectedTags.entries()).map(function(entry) {
+    const tagId = entry[0], weight = entry[1];
+    const tag = tags.find(function(t) { return t.id === tagId; });
+    if (!tag) return '';
+    const display = tag.cn ? tag.name + ' (' + tag.cn + ')' : tag.name;
+    return '<div class="selected-tag-item" onclick="toggleTag('' + tag.id + '')" title="点击移除">' + display + (weight !== 1.0 ? '<span style="font-family:monospace;">:' + weight.toFixed(1) + '</span>' : '') + '<span style="font-size:10px;opacity:0.6;">&#x2715;</span></div>';
+  }).join('');
+}
+
+function renderColorPicker() {
+  const picker = document.getElementById('color-picker');
+  picker.innerHTML = COLORS.map(function(c) {
+    return '<div class="color-option ' + (c === selectedColor ? 'selected' : '') + '" style="background:' + c + '" onclick="selectColor('' + c + '')"></div>';
+  }).join('');
+}
+
+function renderAdmin() {
+  const catList = document.getElementById('category-list');
+  catList.innerHTML = categories.map(function(cat) {
+    const count = tags.filter(function(t) { return t.catId === cat.id; }).length;
+    const hiddenText = cat.hidden ? ' <span style="font-size:11px;color:#f59e0b;">[已隐藏]</span>' : '';
+    return '<div class="category-card"><div class="category-card-info"><div class="category-color" style="background:' + cat.color + '" onclick="changeCategoryColor('' + cat.id + '')" title="点击修改颜色"></div><div><div class="category-card-name">' + cat.name + hiddenText + '</div><div class="category-card-count">' + count + ' 个标签</div></div></div><div class="category-card-actions"><button class="icon-btn" onclick="toggleCategoryHidden('' + cat.id + '')" title="' + (cat.hidden ? '显示' : '隐藏') + '分类">' + (cat.hidden ? '&#x1F441;' : '&#x1F648;') + '</button><button class="icon-btn" onclick="editCategory('' + cat.id + '')" title="编辑">&#x270F;</button><button class="icon-btn delete" onclick="deleteCategory('' + cat.id + '')" title="删除">&#x1F5D1;</button></div></div>';
+  }).join('');
+
+  const select = document.getElementById('batch-cat-select');
+  select.innerHTML = categories.map(function(cat) { return '<option value="' + cat.id + '">' + cat.name + '</option>'; }).join('');
+
+  const mergeSource = document.getElementById('merge-source-select');
+  const mergeTarget = document.getElementById('merge-target-select');
+  if (mergeSource && mergeTarget) {
+    const options = categories.map(function(cat) { return '<option value="' + cat.id + '">' + cat.name + '</option>'; }).join('');
+    mergeSource.innerHTML = options; mergeTarget.innerHTML = options;
+  }
+
+  const tagFilterCat = document.getElementById('tag-filter-cat');
+  if (tagFilterCat) {
+    const currentFilter = tagFilterCat.value;
+    let filterHtml = '<option value="">全部分类</option>';
+    categories.forEach(function(cat) {
+      filterHtml += '<option value="' + cat.id + '">' + cat.name + '</option>';
+    });
+    tagFilterCat.innerHTML = filterHtml;
+    tagFilterCat.value = currentFilter;
+  }
+
+  renderTagTable();
+}
+
+function renderTagTable() {
+  const tbody = document.getElementById('tag-table-body');
+  const searchEl = document.getElementById('tag-search');
+  const search = searchEl ? (searchEl.value || '').toLowerCase() : '';
+  const catFilterEl = document.getElementById('tag-filter-cat');
+  const catFilter = catFilterEl ? catFilterEl.value : '';
+
+  let filtered = tags;
+  if (search) filtered = filtered.filter(function(t) { return t.name.toLowerCase().includes(search) || (t.cn && t.cn.toLowerCase().includes(search)); });
+  if (catFilter) filtered = filtered.filter(function(t) { return t.catId === catFilter; });
+
+  tbody.innerHTML = filtered.map(function(tag) {
+    const cat = categories.find(function(c) { return c.id === tag.catId; });
+    return '<tr><td class="tag-name-cell">' + tag.name + (tag.cn ? ' <span style="color:#999;font-size:12px;">(' + tag.cn + ')</span>' : '') + '</td><td class="tag-cat-cell">' + (cat ? cat.name : '未分类') + '</td><td><div class="weight-slider"><input type="range" min="0.1" max="2.0" step="0.1" value="' + tag.weight + '" onchange="updateTagWeight('' + tag.id + '', this.value)"><span class="weight-value">' + tag.weight.toFixed(1) + '</span></div></td><td><button class="icon-btn delete" onclick="deleteTag('' + tag.id + '')" title="删除">&#x1F5D1;</button></td></tr>';
+  }).join('');
+}
+
+function switchTab(tab) {
+  currentView = tab;
+  document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+  if (tab === 'generator') {
+    document.getElementById('generator-view').style.display = 'flex';
+    document.getElementById('admin-view').style.display = 'none';
+    renderSidebar(); renderTags(); renderSelectedTags();
+  } else {
+    document.getElementById('generator-view').style.display = 'none';
+    document.getElementById('admin-view').style.display = 'block';
+    renderAdmin(); updateStats();
+  }
+}
+
+function selectCategory(catId) {
+  activeCategoryId = catId;
+  globalSearchQuery = '';
+  document.getElementById('global-search').value = '';
+  renderSidebar(); renderTags();
+}
+
+function toggleTag(tagId) {
+  if (selectedTags.has(tagId)) { selectedTags.delete(tagId); }
+  else { const tag = tags.find(function(t) { return t.id === tagId; }); selectedTags.set(tagId, tag ? tag.weight : 1.0); }
+  renderTags(); renderSelectedTags(); updatePrompt();
+}
+
+function adjustWeight(event, tagId) {
+  event.preventDefault();
+  if (!selectedTags.has(tagId)) return;
+  let w = selectedTags.get(tagId);
+  w = Math.min(2.0, w + 0.1);
+  selectedTags.set(tagId, w);
+  renderTags(); renderSelectedTags(); updatePrompt();
+}
+
+async function addWeightToAll(delta) {
+  selectedTags.forEach(function(w, id) {
+    let newW = Math.max(0.1, Math.min(2.0, w + delta));
+    selectedTags.set(id, newW);
+    const tag = tags.find(function(t) { return t.id === id; });
+    if (tag) tag.weight = newW;
+  });
+  await saveData(); renderTags(); renderSelectedTags(); updatePrompt();
+}
+
+function updatePrompt() {
+  const parts = [];
+  selectedTags.forEach(function(weight, tagId) {
+    const tag = tags.find(function(t) { return t.id === tagId; });
+    if (!tag) return;
+    if (weight === 1.0) parts.push(tag.name);
+    else parts.push('(' + tag.name + ':' + weight.toFixed(1) + ')');
+  });
+  document.getElementById('prompt-text').value = parts.join(', ');
+}
+
+function clearAll() {
+  selectedTags.clear(); renderTags(); renderSelectedTags(); updatePrompt();
+  showToast('已清空所有标签');
+}
+
+function copyPrompt() {
+  const text = document.getElementById('prompt-text').value;
+  if (!text) { showToast('提示词为空'); return; }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta); showToast('已复制到剪贴板');
+  } catch(e) { showToast('复制失败，请手动复制'); }
+}
+
+/* [MODIFIED] 修改：管理员验证改为异步，支持云端验证 */
+async function unlockAdmin() {
+  const input = document.getElementById('admin-key');
+  const inputHash = simpleHash(input.value.trim());
+
+  const localHash = getAdminKeyHash();
+
+  if (!localHash) {
+    const cloudHash = await getStoredAdminKeyHash();
+    if (!cloudHash) {
+      showToast('尚未设置管理密钥，请先在「设置管理密钥」中配置');
+      return;
+    }
+    if (inputHash === cloudHash) {
+      localStorage.setItem(ADMIN_KEY_STORAGE, cloudHash);
+      isAdminUnlocked = true;
+      document.getElementById('admin-lock-section').style.display = 'none';
+      document.getElementById('admin-content').style.display = 'block';
+      updateAuthStatus(true);
+      showToast('管理员验证通过');
+    } else {
+      showToast('密钥错误'); input.value = '';
+    }
+    return;
+  }
+
+  if (inputHash === localHash) {
+    isAdminUnlocked = true;
+    document.getElementById('admin-lock-section').style.display = 'none';
+    document.getElementById('admin-content').style.display = 'block';
+    updateAuthStatus(true);
+    showToast('管理员验证通过');
+  } else { showToast('密钥错误'); input.value = ''; }
+}
+
+/* [MODIFIED] 新增：更新权限状态显示 */
+function updateAuthStatus(isAdmin) {
+  const authStatus = document.getElementById('auth-status');
+  const readonlyBadge = document.getElementById('readonly-badge');
+  const adminBadge = document.getElementById('admin-badge');
+
+  if (authStatus) authStatus.style.display = 'flex';
+  if (readonlyBadge) readonlyBadge.style.display = isAdmin ? 'none' : 'inline-flex';
+  if (adminBadge) adminBadge.style.display = isAdmin ? 'inline-flex' : 'none';
+}
+
+function selectColor(color) { selectedColor = color; renderColorPicker(); }
+
+async function addCategory() {
+  const name = document.getElementById('new-cat-name').value.trim();
+  if (!name) { showToast('请输入分类名称'); return; }
+  const id = 'cat_' + Date.now();
+  categories.push({ id: id, name: name, color: selectedColor, hidden: false });
+  document.getElementById('new-cat-name').value = '';
+  await saveData(); renderAdmin(); updateStats(); updateHiddenToggleVisibility();
+  showToast('分类「' + name + '」已添加');
+}
+
+async function deleteCategory(catId) {
+  if (!confirm('确定删除此分类？该分类下的所有标签也将被删除。')) return;
+  categories = categories.filter(function(c) { return c.id !== catId; });
+  tags = tags.filter(function(t) { return t.catId !== catId; });
+  selectedTags.forEach(function(_, id) { if (!tags.find(function(t) { return t.id === id; })) selectedTags.delete(id); });
+  if (activeCategoryId === catId) activeCategoryId = categories[0] ? categories[0].id : '';
+  await saveData(); renderAll(); updateStats(); updateHiddenToggleVisibility();
+  showToast('分类已删除');
+}
+
+async function editCategory(catId) {
+  const cat = categories.find(function(c) { return c.id === catId; });
+  if (!cat) return;
+  const newName = prompt('修改分类名称：', cat.name);
+  if (newName && newName.trim()) { cat.name = newName.trim(); await saveData(); renderAdmin(); renderSidebar(); showToast('分类已更新'); }
+}
+
+function changeCategoryColor(catId) {
+  const cat = categories.find(function(c) { return c.id === catId; });
+  if (!cat) return;
+  let html = '<div class="modal-overlay" id="color-modal" onclick="if(event.target.id==='color-modal')closeColorModal()"><div class="modal-content"><div class="modal-title">修改「' + cat.name + '」的颜色</div><div class="modal-body"><div class="color-picker-row" style="gap:8px;">';
+  COLORS.forEach(function(c) {
+    html += '<div class="color-option ' + (c === cat.color ? 'selected' : '') + '" style="background:' + c + ';width:32px;height:32px;" onclick="applyCategoryColor('' + catId + '', ' + c + '')"></div>';
+  });
+  html += '</div></div><div class="modal-footer"><button class="btn" onclick="closeColorModal()">取消</button></div></div></div>';
+  const modal = document.createElement('div'); modal.innerHTML = html;
+  document.body.appendChild(modal.firstElementChild);
+}
+
+async function applyCategoryColor(catId, color) {
+  const cat = categories.find(function(c) { return c.id === catId; });
+  if (cat) { cat.color = color; await saveData(); renderAll(); closeColorModal(); showToast('颜色已更新'); }
+}
+function closeColorModal() { const modal = document.getElementById('color-modal'); if (modal) modal.remove(); }
+
+async function toggleCategoryHidden(catId) {
+  const cat = categories.find(function(c) { return c.id === catId; });
+  if (!cat) return;
+  cat.hidden = !cat.hidden;
+  await saveData(); renderAdmin(); renderSidebar(); updateHiddenToggleVisibility();
+  showToast(cat.hidden ? '分类已隐藏' : '分类已显示');
+}
+
+async function mergeCategories() {
+  const sourceId = document.getElementById('merge-source-select').value;
+  const targetId = document.getElementById('merge-target-select').value;
+  if (!sourceId || !targetId) { showToast('请选择源分类和目标分类'); return; }
+  if (sourceId === targetId) { showToast('源分类和目标分类不能相同'); return; }
+  const sourceCat = categories.find(function(c) { return c.id === sourceId; });
+  const targetCat = categories.find(function(c) { return c.id === targetId; });
+  if (!sourceCat || !targetCat) { showToast('分类不存在'); return; }
+  const movedCount = tags.filter(function(t) { return t.catId === sourceId; }).length;
+  if (!confirm('确定将「' + sourceCat.name + '」的 ' + movedCount + ' 个标签合并到「' + targetCat.name + '」？\n源分类将被删除。')) return;
+  tags.forEach(function(t) { if (t.catId === sourceId) t.catId = targetId; });
+  categories = categories.filter(function(c) { return c.id !== sourceId; });
+  if (activeCategoryId === sourceId) activeCategoryId = targetId;
+  await saveData(); renderAll(); updateStats(); updateHiddenToggleVisibility();
+  showToast('已将 ' + movedCount + ' 个标签从「' + sourceCat.name + '」合并到「' + targetCat.name + '」');
+}
+
+async function batchAddTags() {
+  const catId = document.getElementById('batch-cat-select').value;
+  const text = document.getElementById('batch-tags').value.trim();
+  const skipDup = document.getElementById('skip-dup-check').checked;
+  if (!text) { showToast('请输入标签内容'); return; }
+  const lines = text.split('\n').map(function(l) { return l.trim(); }).filter(function(l) { return l; });
+  let added = 0, skipped = 0;
+  lines.forEach(function(line) {
+    const match = line.match(/^([a-zA-Z0-9_\-\s\(\):.]+?)(?:\s+([\u4e00-\u9fa5][^]*))?$/);
+    if (match) {
+      const name = match[1].trim();
+      const cn = match[2] ? match[2].trim() : '';
+      if (name) {
+        const exists = tags.some(function(t) { return normalizeTagName(t.name) === normalizeTagName(name); });
+        if (exists) { skipped++; if (skipDup) return; }
+        tags.push({ id: 't_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5), catId: catId, name: name, cn: cn, weight: 1.0 });
+        added++;
+      }
+    }
+  });
+  document.getElementById('batch-tags').value = '';
+  await saveData(); renderAdmin(); renderSidebar(); renderTags(); updateStats();
+  if (skipped > 0) showToast('添加 ' + added + ' 个，跳过 ' + skipped + ' 个重复标签');
+  else showToast('成功添加 ' + added + ' 个标签');
+}
+
+async function deleteTag(tagId) {
+  if (!confirm('确定删除此标签？')) return;
+  tags = tags.filter(function(t) { return t.id !== tagId; });
+  selectedTags.delete(tagId);
+  await saveData(); renderAdmin(); renderSidebar(); renderTags(); renderSelectedTags(); updatePrompt(); updateStats();
+}
+
+async function updateTagWeight(tagId, weight) {
+  const tag = tags.find(function(t) { return t.id === tagId; });
+  if (tag) {
+    tag.weight = parseFloat(weight); await saveData(); renderTagTable();
+    if (selectedTags.has(tagId)) { selectedTags.set(tagId, tag.weight); updatePrompt(); renderSelectedTags(); }
+  }
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg; toast.classList.add('show');
+  setTimeout(function() { toast.classList.remove('show'); }, 2000);
+}
+
+const DEFAULT_DATA = {"categories": [{"id": "cat_quality", "name": "质量词", "color": "#3b82f6", "hidden": false}, {"id": "cat_medium", "name": "媒介/画风", "color": "#ef4444", "hidden": false}, {"id": "cat_subject", "name": "主体", "color": "#22c55e", "hidden": false}, {"id": "cat_style", "name": "艺术风格", "color": "#a855f7", "hidden": false}, {"id": "cat_lighting", "name": "光照", "color": "#f59e0b", "hidden": false}, {"id": "cat_color", "name": "色彩", "color": "#ec4899", "hidden": false}, {"id": "cat_camera", "name": "相机/技术", "color": "#06b6d4", "hidden": false}, {"id": "cat_artist", "name": "艺术家/网站", "color": "#f97316", "hidden": false}, {"id": "cat_detail", "name": "细节增强", "color": "#84cc16", "hidden": false}, {"id": "cat_negative", "name": "负面提示词", "color": "#6366f1", "hidden": false}], "tags": [{"id": "t1", "catId": "cat_quality", "name": "masterpiece", "cn": "杰作", "weight": 1.0}, {"id": "t2", "catId": "cat_quality", "name": "best quality", "cn": "最佳质量", "weight": 1.0}, {"id": "t3", "catId": "cat_quality", "name": "ultra-detailed", "cn": "超精细", "weight": 1.0}, {"id": "t4", "catId": "cat_quality", "name": "high resolution", "cn": "高分辨率", "weight": 1.0}, {"id": "t5", "catId": "cat_quality", "name": "8k uhd", "cn": "8K超高清", "weight": 1.0}, {"id": "t6", "catId": "cat_quality", "name": "RAW photo", "cn": "RAW照片", "weight": 1.0}, {"id": "t7", "catId": "cat_quality", "name": "sharp focus", "cn": "锐焦", "weight": 1.0}, {"id": "t8", "catId": "cat_quality", "name": "highly detailed", "cn": "高度详细", "weight": 1.0}, {"id": "t9", "catId": "cat_quality", "name": "professional", "cn": "专业级", "weight": 1.0}, {"id": "t10", "catId": "cat_quality", "name": "trending on artstation", "cn": "ArtStation热门", "weight": 1.0}, {"id": "t20", "catId": "cat_medium", "name": "digital art", "cn": "数字艺术", "weight": 1.0}, {"id": "t21", "catId": "cat_medium", "name": "oil painting", "cn": "油画", "weight": 1.0}, {"id": "t22", "catId": "cat_medium", "name": "watercolor", "cn": "水彩", "weight": 1.0}, {"id": "t23", "catId": "cat_medium", "name": "illustration", "cn": "插画", "weight": 1.0}, {"id": "t24", "catId": "cat_medium", "name": "photography", "cn": "摄影", "weight": 1.0}, {"id": "t25", "catId": "cat_medium", "name": "3D render", "cn": "3D渲染", "weight": 1.0}, {"id": "t26", "catId": "cat_medium", "name": "concept art", "cn": "概念艺术", "weight": 1.0}, {"id": "t27", "catId": "cat_medium", "name": "sketch", "cn": "素描", "weight": 1.0}, {"id": "t28", "catId": "cat_medium", "name": "anime", "cn": "动漫", "weight": 1.0}, {"id": "t29", "catId": "cat_medium", "name": "pixel art", "cn": "像素艺术", "weight": 1.0}, {"id": "t40", "catId": "cat_subject", "name": "1girl", "cn": "1个女孩", "weight": 1.0}, {"id": "t41", "catId": "cat_subject", "name": "1boy", "cn": "1个男孩", "weight": 1.0}, {"id": "t42", "catId": "cat_subject", "name": "portrait", "cn": "肖像", "weight": 1.0}, {"id": "t43", "catId": "cat_subject", "name": "full body", "cn": "全身", "weight": 1.0}, {"id": "t44", "catId": "cat_subject", "name": "close-up", "cn": "特写", "weight": 1.0}, {"id": "t45", "catId": "cat_subject", "name": "landscape", "cn": "风景", "weight": 1.0}, {"id": "t46", "catId": "cat_subject", "name": "cityscape", "cn": "城市景观", "weight": 1.0}, {"id": "t47", "catId": "cat_subject", "name": "character", "cn": "角色", "weight": 1.0}, {"id": "t48", "catId": "cat_subject", "name": "creature", "cn": "生物", "weight": 1.0}, {"id": "t49", "catId": "cat_subject", "name": "architecture", "cn": "建筑", "weight": 1.0}, {"id": "t60", "catId": "cat_style", "name": "hyperrealistic", "cn": "超写实", "weight": 1.0}, {"id": "t61", "catId": "cat_style", "name": "fantasy", "cn": "奇幻", "weight": 1.0}, {"id": "t62", "catId": "cat_style", "name": "cyberpunk", "cn": "赛博朋克", "weight": 1.0}, {"id": "t63", "catId": "cat_style", "name": "steampunk", "cn": "蒸汽朋克", "weight": 1.0}, {"id": "t64", "catId": "cat_style", "name": "surrealism", "cn": "超现实主义", "weight": 1.0}, {"id": "t65", "catId": "cat_style", "name": "impressionism", "cn": "印象派", "weight": 1.0}, {"id": "t66", "catId": "cat_style", "name": "art deco", "cn": "装饰艺术", "weight": 1.0}, {"id": "t67", "catId": "cat_style", "name": "minimalist", "cn": "极简主义", "weight": 1.0}, {"id": "t68", "catId": "cat_style", "name": "gothic", "cn": "哥特式", "weight": 1.0}, {"id": "t69", "catId": "cat_style", "name": "vaporwave", "cn": "蒸汽波", "weight": 1.0}, {"id": "t80", "catId": "cat_lighting", "name": "soft lighting", "cn": "柔和光照", "weight": 1.0}, {"id": "t81", "catId": "cat_lighting", "name": "dramatic lighting", "cn": "戏剧性光照", "weight": 1.0}, {"id": "t82", "catId": "cat_lighting", "name": "volumetric lighting", "cn": "体积光", "weight": 1.0}, {"id": "t83", "catId": "cat_lighting", "name": "cinematic lighting", "cn": "电影级光照", "weight": 1.0}, {"id": "t84", "catId": "cat_lighting", "name": "golden hour", "cn": "黄金时刻", "weight": 1.0}, {"id": "t85", "catId": "cat_lighting", "name": "neon lights", "cn": "霓虹灯光", "weight": 1.0}, {"id": "t86", "catId": "cat_lighting", "name": "Rembrandt lighting", "cn": "伦勃朗光", "weight": 1.0}, {"id": "t87", "catId": "cat_lighting", "name": "rim lighting", "cn": "轮廓光", "weight": 1.0}, {"id": "t88", "catId": "cat_lighting", "name": "backlight", "cn": "逆光", "weight": 1.0}, {"id": "t89", "catId": "cat_lighting", "name": "studio lighting", "cn": "影棚光", "weight": 1.0}, {"id": "t100", "catId": "cat_color", "name": "vibrant colors", "cn": "鲜艳色彩", "weight": 1.0}, {"id": "t101", "catId": "cat_color", "name": "pastel colors", "cn": "柔和色彩", "weight": 1.0}, {"id": "t102", "catId": "cat_color", "name": "monochrome", "cn": "单色", "weight": 1.0}, {"id": "t103", "catId": "cat_color", "name": "iridescent", "cn": "彩虹色", "weight": 1.0}, {"id": "t104", "catId": "cat_color", "name": "warm tones", "cn": "暖色调", "weight": 1.0}, {"id": "t105", "catId": "cat_color", "name": "cool tones", "cn": "冷色调", "weight": 1.0}, {"id": "t106", "catId": "cat_color", "name": "high contrast", "cn": "高对比度", "weight": 1.0}, {"id": "t107", "catId": "cat_color", "name": "low saturation", "cn": "低饱和度", "weight": 1.0}, {"id": "t108", "catId": "cat_color", "name": "sepia", "cn": "sepia色调", "weight": 1.0}, {"id": "t109", "catId": "cat_color", "name": "duotone", "cn": "双色调", "weight": 1.0}, {"id": "t120", "catId": "cat_camera", "name": "85mm lens", "cn": "85mm镜头", "weight": 1.0}, {"id": "t121", "catId": "cat_camera", "name": "bokeh", "cn": "散景", "weight": 1.0}, {"id": "t122", "catId": "cat_camera", "name": "shallow depth of field", "cn": "浅景深", "weight": 1.0}, {"id": "t123", "catId": "cat_camera", "name": "film grain", "cn": "胶片颗粒", "weight": 1.0}, {"id": "t124", "catId": "cat_camera", "name": "35mm photograph", "cn": "35mm照片", "weight": 1.0}, {"id": "t125", "catId": "cat_camera", "name": "DSLR", "cn": "单反相机", "weight": 1.0}, {"id": "t126", "catId": "cat_camera", "name": "macro shot", "cn": "微距拍摄", "weight": 1.0}, {"id": "t127", "catId": "cat_camera", "name": "wide angle", "cn": "广角", "weight": 1.0}, {"id": "t128", "catId": "cat_camera", "name": "long exposure", "cn": "长曝光", "weight": 1.0}, {"id": "t129", "catId": "cat_camera", "name": "tilt-shift", "cn": "移轴", "weight": 1.0}, {"id": "t140", "catId": "cat_artist", "name": "artstation", "cn": "ArtStation", "weight": 1.0}, {"id": "t141", "catId": "cat_artist", "name": "deviantart", "cn": "DeviantArt", "weight": 1.0}, {"id": "t142", "catId": "cat_artist", "name": "pixiv", "cn": "Pixiv", "weight": 1.0}, {"id": "t143", "catId": "cat_artist", "name": "by Greg Rutkowski", "cn": "Greg Rutkowski", "weight": 1.0}, {"id": "t144", "catId": "cat_artist", "name": "by Alphonse Mucha", "cn": "Alphonse Mucha", "weight": 1.0}, {"id": "t145", "catId": "cat_artist", "name": "by Hayao Miyazaki", "cn": "宫崎骏", "weight": 1.0}, {"id": "t146", "catId": "cat_artist", "name": "by Studio Ghibli", "cn": "吉卜力", "weight": 1.0}, {"id": "t147", "catId": "cat_artist", "name": "by Jeremy Mann", "cn": "Jeremy Mann", "weight": 1.0}, {"id": "t148", "catId": "cat_artist", "name": "by WLOP", "cn": "WLOP", "weight": 1.0}, {"id": "t149", "catId": "cat_artist", "name": "by Makoto Shinkai", "cn": "新海诚", "weight": 1.0}, {"id": "t160", "catId": "cat_detail", "name": "intricate details", "cn": "复杂细节", "weight": 1.0}, {"id": "t161", "catId": "cat_detail", "name": "ornate", "cn": "华丽装饰", "weight": 1.0}, {"id": "t162", "catId": "cat_detail", "name": "elegant", "cn": "优雅", "weight": 1.0}, {"id": "t163", "catId": "cat_detail", "name": "atmospheric", "cn": "氛围感", "weight": 1.0}, {"id": "t164", "catId": "cat_detail", "name": "moody", "cn": "情绪化", "weight": 1.0}, {"id": "t165", "catId": "cat_detail", "name": "epic", "cn": "史诗感", "weight": 1.0}, {"id": "t166", "catId": "cat_detail", "name": "cinematic composition", "cn": "电影构图", "weight": 1.0}, {"id": "t167", "catId": "cat_detail", "name": "dynamic pose", "cn": "动态姿势", "weight": 1.0}, {"id": "t168", "catId": "cat_detail", "name": "flowing hair", "cn": "飘逸头发", "weight": 1.0}, {"id": "t169", "catId": "cat_detail", "name": "detailed background", "cn": "详细背景", "weight": 1.0}, {"id": "t180", "catId": "cat_negative", "name": "lowres", "cn": "低分辨率", "weight": 1.0}, {"id": "t181", "catId": "cat_negative", "name": "bad anatomy", "cn": "解剖错误", "weight": 1.0}, {"id": "t182", "catId": "cat_negative", "name": "bad hands", "cn": "手部错误", "weight": 1.0}, {"id": "t183", "catId": "cat_negative", "name": "text", "cn": "文字", "weight": 1.0}, {"id": "t184", "catId": "cat_negative", "name": "error", "cn": "错误", "weight": 1.0}, {"id": "t185", "catId": "cat_negative", "name": "missing fingers", "cn": "缺失手指", "weight": 1.0}, {"id": "t186", "catId": "cat_negative", "name": "extra digit", "cn": "多余手指", "weight": 1.0}, {"id": "t187", "catId": "cat_negative", "name": "worst quality", "cn": "最差质量", "weight": 1.0}, {"id": "t188", "catId": "cat_negative", "name": "blurry", "cn": "模糊", "weight": 1.0}, {"id": "t189", "catId": "cat_negative", "name": "deformed", "cn": "变形", "weight": 1.0}, {"id": "t190", "catId": "cat_negative", "name": "ugly", "cn": "丑陋", "weight": 1.0}, {"id": "t191", "catId": "cat_negative", "name": "duplicate", "cn": "重复", "weight": 1.0}, {"id": "t192", "catId": "cat_negative", "name": "watermark", "cn": "水印", "weight": 1.0}, {"id": "t193", "catId": "cat_negative", "name": "signature", "cn": "签名", "weight": 1.0}]};
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
