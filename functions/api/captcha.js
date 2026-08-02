@@ -10,7 +10,8 @@ export async function onRequestPost(context) {
   const vid = context.env.VAPTCHA_VID || '';
   const vkey = context.env.VAPTCHA_VKEY || '';
   if (!vid || !vkey) {
-    return new Response(JSON.stringify({ ok: false, msg: 'vaptcha not configured (set VAPTCHA_VID/VAPTCHA_VKEY)' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    const missing = [vid ? '' : 'VAPTCHA_VID', vkey ? '' : 'VAPTCHA_VKEY'].filter(Boolean).join(', ');
+    return new Response(JSON.stringify({ ok: false, msg: 'vaptcha not configured (missing: ' + missing + ')' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
   const ip = body.ip || (context.request.headers.get('CF-Connecting-IP') || '').trim();
   try {

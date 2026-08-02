@@ -11,7 +11,8 @@ exports.handler = async function(event) {
   const vid = process.env.VAPTCHA_VID || '';
   const vkey = process.env.VAPTCHA_VKEY || '';
   if (!vid || !vkey) {
-    return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: false, msg: 'vaptcha not configured (set VAPTCHA_VID/VAPTCHA_VKEY)' }) };
+    const missing = [vid ? '' : 'VAPTCHA_VID', vkey ? '' : 'VAPTCHA_VKEY'].filter(Boolean).join(', ');
+    return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: false, msg: 'vaptcha not configured (missing: ' + missing + ')' }) };
   }
   const ip = body.ip || (event.headers['x-nf-client-connection-ip'] || '').split(',')[0].trim();
   try {

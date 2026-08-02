@@ -13,7 +13,8 @@ export default async function handler(req, res) {
   const vid = process.env.VAPTCHA_VID || '';
   const vkey = process.env.VAPTCHA_VKEY || '';
   if (!vid || !vkey) {
-    res.status(200).json({ ok: false, msg: 'vaptcha not configured (set VAPTCHA_VID/VAPTCHA_VKEY)' });
+    const missing = [vid ? '' : 'VAPTCHA_VID', vkey ? '' : 'VAPTCHA_VKEY'].filter(Boolean).join(', ');
+    res.status(200).json({ ok: false, msg: 'vaptcha not configured (missing: ' + missing + ')' });
     return;
   }
   const ip = body.ip || (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
