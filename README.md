@@ -80,11 +80,11 @@ insert into admins (user_id, email) values ('粘贴用户UUID', '你的邮箱@ex
 
 ### 2. 配置 Vaptcha V4
 
-1. 在 https://www.vaptcha.com 控制台创建 V4 验证单元，取得 `VID` 和 `VKEY`（V3 域名已被 DNS 封锁，必须用 V4）
+1. 在 https://www.vaptcha.com 控制台创建 V4 验证单元，取得 `VID` 和 `VKEY`
 
 ### 3. 部署到 Cloudflare Pages
 
-1. 将本仓库推送到 GitHub
+1. Fork本仓库
 2. Cloudflare 控制台 → **Workers & Pages** → **Create** → **Pages** → **Connect to Git** → 选择仓库
 3. 构建设置：Framework preset 选 **None**，Build command 和 Build output directory 留空 → Deploy
 4. 部署完成后到 **Settings → Environment variables** 添加：
