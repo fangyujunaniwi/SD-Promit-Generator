@@ -83,7 +83,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 .category-card-name { font-size: 15px; font-weight: 500; }
 .category-card-count { font-size: 13px; color: #999; }
 .category-card-actions { display: flex; gap: 6px; }
-.icon-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #e5e5e5; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #666; transition: all 0.15s; }
+.icon-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #e5e5e5; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; color: #666; transition: all 0.15s; }
 .icon-btn:hover { background: #f0f0f0; color: #1a1a1a; }
 .icon-btn.delete:hover { background: #dc3545; color: #fff; border-color: #dc3545; }
 .tag-table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -431,7 +431,7 @@ fish 鱼
           </select>
           <input type="text" class="form-input" id="tag-search" placeholder="搜索标签..." oninput="renderTagTable()" style="min-width:200px;">
         </div>
-        <div style="overflow-x:auto;">
+        <div style="overflow-x:auto; max-height:300px; overflow-y:auto;">
           <table class="tag-table" id="tag-table">
             <thead><tr><th>标签</th><th>分类</th><th>权重</th><th>操作</th></tr></thead>
             <tbody id="tag-table-body"></tbody>
@@ -1080,7 +1080,7 @@ async function loadSuggestions() {
       const time = new Date(s.created_at).toLocaleString();
       return '<div class="suggest-item"><div class="suggest-item-header">' +
         '<span class="suggest-item-title">' + escapeHtml(s.title || '（无标题）') + '</span>' +
-        '<button class="icon-btn delete" title="删除建议" onclick="deleteSuggestion(\'' + s.id + '\')">&#x1F5D1;</button></div>' +
+        '<button class="icon-btn delete" title="删除建议" onclick="deleteSuggestion(\'' + s.id + '\')">X</button></div>' +
         '<div class="suggest-item-content">' + escapeHtml(s.content) + '</div>' +
         '<div class="suggest-item-meta"><span>' + escapeHtml(s.email || '匿名') + '</span><span>' + time + '</span></div></div>';
     }).join('');
@@ -1504,7 +1504,7 @@ function renderAdmin() {
   catList.innerHTML = categories.map(function(cat) {
     const count = tags.filter(function(t) { return t.catId === cat.id; }).length;
     const hiddenText = cat.hidden ? ' <span style="font-size:11px;color:#f59e0b;">[已隐藏]</span>' : '';
-    return '<div class="category-card"><div class="category-card-info"><div class="category-color" style="background:' + cat.color + '" onclick="changeCategoryColor(\'' + cat.id + '\')" title="点击修改颜色"></div><div><div class="category-card-name">' + cat.name + hiddenText + '</div><div class="category-card-count">' + count + ' 个标签</div></div></div><div class="category-card-actions"><button class="icon-btn" data-crud onclick="toggleCategoryHidden(\'' + cat.id + '\')" title="' + (cat.hidden ? '显示' : '隐藏') + '分类">' + (cat.hidden ? '&#x1F441;' : '&#x1F648;') + '</button><button class="icon-btn" data-crud onclick="editCategory(\'' + cat.id + '\')" title="编辑">&#x270F;</button><button class="icon-btn delete" data-crud onclick="deleteCategory(\'' + cat.id + '\')" title="删除">&#x1F5D1;</button></div></div>';
+    return '<div class="category-card"><div class="category-card-info"><div class="category-color" style="background:' + cat.color + '" onclick="changeCategoryColor(\'' + cat.id + '\')" title="点击修改颜色"></div><div><div class="category-card-name">' + cat.name + hiddenText + '</div><div class="category-card-count">' + count + ' 个标签</div></div></div><div class="category-card-actions"><button class="icon-btn" data-crud onclick="toggleCategoryHidden(\'' + cat.id + '\')" title="' + (cat.hidden ? '显示' : '隐藏') + '分类">H</button><button class="icon-btn" data-crud onclick="editCategory(\'' + cat.id + '\')" title="编辑">E</button><button class="icon-btn delete" data-crud onclick="deleteCategory(\'' + cat.id + '\')" title="删除">X</button></div></div>';
   }).join('');
 
   const select = document.getElementById('batch-cat-select');
@@ -1549,7 +1549,7 @@ function renderTagTable() {
 
   tbody.innerHTML = filtered.map(function(tag) {
     const cat = categories.find(function(c) { return c.id === tag.catId; });
-    return '<tr><td class="tag-name-cell">' + tag.name + (tag.cn ? ' <span style="color:#999;font-size:12px;">(' + tag.cn + ')</span>' : '') + '</td><td class="tag-cat-cell">' + (cat ? cat.name : '未分类') + '</td><td><div class="weight-slider"><input type="range" min="0.1" max="2.0" step="0.1" value="' + tag.weight + '" onchange="updateTagWeight(\'' + tag.id + '\', this.value)" data-crud><span class="weight-value">' + tag.weight.toFixed(1) + '</span></div></td><td><button class="icon-btn delete" data-crud onclick="deleteTag(\'' + tag.id + '\')" title="删除">&#x1F5D1;</button></td></tr>';
+    return '<tr><td class="tag-name-cell">' + tag.name + (tag.cn ? ' <span style="color:#999;font-size:12px;">(' + tag.cn + ')</span>' : '') + '</td><td class="tag-cat-cell">' + (cat ? cat.name : '未分类') + '</td><td><div class="weight-slider"><input type="range" min="0.1" max="2.0" step="0.1" value="' + tag.weight + '" onchange="updateTagWeight(\'' + tag.id + '\', this.value)" data-crud><span class="weight-value">' + tag.weight.toFixed(1) + '</span></div></td><td><button class="icon-btn delete" data-crud onclick="deleteTag(\'' + tag.id + '\')" title="删除">X</button></td></tr>';
   }).join('');
 }
 
