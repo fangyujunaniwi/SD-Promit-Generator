@@ -597,7 +597,7 @@ function resetCaptcha() {
 
 // ==================== [MODIFIED] 新增：Vaptcha V4 服务端二次校验 ====================
 async function verifyVaptcha(verify) {
-  if (!verify || !verify.token) return false;
+  if (!verify || !verify.token) return { ok: false, msg: '未获取到验证结果，请重新验证' };
   try {
     const controller = new AbortController();
     const timer = setTimeout(function() { controller.abort(); }, 8000);
@@ -609,11 +609,12 @@ async function verifyVaptcha(verify) {
       cache: 'no-store'
     });
     clearTimeout(timer);
-    if (!resp.ok) return false;
+    if (!resp.ok) return { ok: false, msg: '校验服务异常(' + resp.status + ')' };
     const data = await resp.json();
-    return data.ok === true;
+    if (data.ok === true) return { ok: true, msg: '' };
+    return { ok: false, msg: data.msg || '校验失败' };
   } catch (e) {
-    return false;
+    return { ok: false, msg: '无法连接校验服务' };
   }
 }
 
@@ -928,9 +929,9 @@ async function handleLogin() {
   }
 
   const human = await verifyVaptcha(window.vaptchaVerify);
-  if (!human) {
+  if (!human.ok) {
     resetCaptcha();
-    errorEl.textContent = '人机验证校验失败，请重试';
+    errorEl.textContent = '人机验证校验失败: ' + (human.msg || '请重试');
     return;
   }
 
@@ -984,9 +985,9 @@ async function handleRegister() {
   }
 
   const human = await verifyVaptcha(window.vaptchaVerify);
-  if (!human) {
+  if (!human.ok) {
     resetCaptcha();
-    errorEl.textContent = '人机验证校验失败，请重试';
+    errorEl.textContent = '人机验证校验失败: ' + (human.msg || '请重试');
     return;
   }
 

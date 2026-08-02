@@ -10,7 +10,7 @@ export async function onRequestPost(context) {
   const vid = context.env.VAPTCHA_VID || '';
   const vkey = context.env.VAPTCHA_VKEY || '';
   if (!vid || !vkey) {
-    return new Response(JSON.stringify({ ok: false, msg: 'vaptcha not configured' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ ok: false, msg: 'vaptcha not configured (set VAPTCHA_VID/VAPTCHA_VKEY)' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
   const ip = body.ip || (context.request.headers.get('CF-Connecting-IP') || '').trim();
   try {
@@ -27,9 +27,10 @@ export async function onRequestPost(context) {
       })
     });
     const data = await r.json().catch(function() { return {}; });
-    const ok = !!(data && data.data && data.data.result === true);
-    return new Response(JSON.stringify({ ok: ok }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    const d = data && data.data ? data.data : {};
+    const ok = d.result === true;
+    return new Response(JSON.stringify({ ok: ok, msg: d.note || data.msg || 'verify failed', code: typeof d.code !== 'undefined' ? d.code : (data.code !== undefined ? data.code : null) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   } catch (e) {
-    return new Response(JSON.stringify({ ok: false, msg: 'vaptcha verify request failed' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ ok: false, msg: 'vaptcha verify request failed: ' + (e && e.message ? e.message : String(e)) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
 }
