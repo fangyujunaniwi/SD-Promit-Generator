@@ -276,7 +276,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
     <div class="sidebar" id="category-sidebar">
       <div style="padding-bottom:12px;border-bottom:1px solid #e5e5e5;margin-bottom:8px;">
         <div class="nav-search" id="nav-search-box" style="margin-bottom:8px;width:100%;max-width:none;margin-left:0;margin-right:0;">
-          <input type="text" class="search-input" id="global-search" placeholder="搜索标签/分类" oninput="onGlobalSearch(this.value)">
+          <input type="text" class="search-input" id="global-search" placeholder="搜索标签/分类" autocomplete="off" oninput="onGlobalSearch(this.value)">
           <button class="search-btn" onclick="clearGlobalSearch()">&#x2715;</button>
         </div>
         <label class="toggle-wrapper" id="show-hidden-toggle-wrapper" style="display:none;font-size:12px;">
@@ -429,7 +429,7 @@ fish 鱼
           <select class="form-select" id="tag-filter-cat" onchange="renderTagTable()">
             <option value="">全部分类</option>
           </select>
-          <input type="text" class="form-input" id="tag-search" placeholder="搜索标签..." oninput="renderTagTable()" style="min-width:120px; flex:0 1 180px;">
+          <input type="text" class="form-input" id="tag-search" placeholder="搜索标签..." autocomplete="off" oninput="renderTagTable()" style="min-width:120px; flex:0 1 180px;">
         </div>
         <div style="overflow-x:auto; max-height:300px; overflow-y:auto;">
           <table class="tag-table" id="tag-table">
