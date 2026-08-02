@@ -219,6 +219,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
     <div style="display:flex;align-items:center;gap:12px;">
       <div class="nav-tabs">
         <button class="nav-tab active" data-tab="generator" onclick="switchTab('generator')">生成器</button>
+        <button class="nav-tab" data-tab="suggest" id="suggest-tab-btn" style="display:none;" onclick="switchTab('suggest')">建议反馈</button>
         <button class="nav-tab" data-tab="admin" id="admin-tab-btn" style="display:none;" onclick="switchTab('admin')">后台管理</button>
       </div>
       <!-- [MODIFIED] 新增：用户状态栏 -->
@@ -257,6 +258,26 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
       <div class="btn-group">
         <button class="btn" onclick="addWeightToAll(0.1)">全部+0.1</button>
         <button class="btn" onclick="addWeightToAll(-0.1)">全部-0.1</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="admin-panel" id="suggest-view" style="display:none;">
+    <div class="admin-section">
+      <div class="admin-section-title">提交建议</div>
+      <div class="storage-panel">
+        <div style="font-size:13px;color:#666;margin-bottom:12px;line-height:1.8;">
+          欢迎提出你的想法！可以建议新增标签、新分类、改进功能或报告问题。<br>
+          建议提交后，管理员会在后台查看并处理。
+        </div>
+        <div class="form-row">
+          <input type="text" class="form-input" id="suggest-title" placeholder="标题（可选）" style="max-width:400px;">
+        </div>
+        <textarea class="textarea-batch" id="suggest-content" placeholder="请输入你的建议内容..."></textarea>
+        <div class="form-row">
+          <button class="btn btn-primary" onclick="submitSuggestion()">提交建议</button>
+        </div>
+        <div id="suggest-result"></div>
       </div>
     </div>
   </div>
@@ -453,6 +474,18 @@ CREATE POLICY "Allow admin write" ON public.sd_data
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- [MODIFIED] 新增：用户建议（仅管理员查看） -->
+    <div class="admin-section">
+      <div class="admin-section-title">用户建议</div>
+      <div class="storage-panel">
+        <div id="suggest-list" style="font-size:13px;color:#666;">加载中...</div>
+        <div class="form-row" style="margin-top:8px;">
+          <button class="btn" onclick="loadSuggestions()">刷新建议</button>
+        </div>
+      </div>
+    </div>
     </div>
   </div>
 
@@ -716,41 +749,45 @@ function updateUserUI() {
       currentUserInfo.innerHTML = '未登录 — 您可以匿名查看所有数据，但无法修改。登录后可获取更多权限。';
     }
   }
+  updateTabVisibility();
 }
 
-// ==================== [MODIFIED] 修改点 6: 新增更新管理员界面可见性函数 ====================
+// [MODIFIED] 新增：仅登录用户可见「建议反馈」入口
+function updateTabVisibility() {
+  const suggestTab = document.getElementById('suggest-tab-btn');
+  if (suggestTab) suggestTab.style.display = currentUser ? 'inline-block' : 'none';
+}
+
+// ==================== [MODIFIED] 修改点 6: 更新管理员界面可见性函数（仅管理员可见后台） ====================
 function updateAdminVisibility() {
   const adminContent = document.getElementById('admin-content');
   const readonlyBanner = document.getElementById('readonly-banner');
   const adminTabBtn = document.getElementById('admin-tab-btn');
 
-  if (supabaseClient) {
+  const canSeeAdmin = !!(supabaseClient && isAdmin);
+
+  if (canSeeAdmin) {
     adminContent.style.display = 'block';
-    if (isReadOnly) {
-      readonlyBanner.classList.add('show');
-    } else {
-      readonlyBanner.classList.remove('show');
-    }
+    readonlyBanner.classList.remove('show');
     adminTabBtn.style.display = 'inline-block';
   } else {
     adminContent.style.display = 'none';
     readonlyBanner.classList.remove('show');
+    adminTabBtn.style.display = 'none';
   }
 
-  // [FIXED] 只禁用带有 data-crud 属性的按钮，避免禁用登录、导出等通用按钮
+  // 非管理员若停留在后台视图，自动切到建议反馈页
+  if (!canSeeAdmin && currentView === 'admin') {
+    switchTab('suggest');
+  }
+
+  // 管理员模式下所有按钮可用
   const editButtons = document.querySelectorAll('#admin-content [data-crud]');
   editButtons.forEach(function(btn) {
-    if (isReadOnly) {
-      btn.disabled = true;
-      btn.style.opacity = '0.5';
-      btn.style.cursor = 'not-allowed';
-      btn.title = '只读模式：请联系管理员获取编辑权限';
-    } else {
-      btn.disabled = false;
-      btn.style.opacity = '1';
-      btn.style.cursor = 'pointer';
-      btn.title = '';
-    }
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    btn.title = '';
   });
 }
 
@@ -874,6 +911,57 @@ function updateSyncStatus(status, text) {
   syncText.textContent = text;
 }
 
+// ==================== [MODIFIED] 新增：建议提交与管理员查看 ====================
+async function submitSuggestion() {
+  const title = document.getElementById('suggest-title').value.trim();
+  const content = document.getElementById('suggest-content').value.trim();
+  if (!content) { showToast('请输入建议内容'); return; }
+  if (!supabaseClient) { showToast('请先连接 Supabase'); return; }
+  try {
+    const { error } = await supabaseClient.from('suggestions').insert({
+      title: title || null,
+      content: content,
+      email: currentUser ? currentUser.email : null,
+      created_at: new Date().toISOString()
+    });
+    if (error) throw error;
+    document.getElementById('suggest-title').value = '';
+    document.getElementById('suggest-content').value = '';
+    document.getElementById('suggest-result').innerHTML = '<div class="dup-empty">建议已提交，感谢你的反馈！</div>';
+    showToast('建议已提交');
+  } catch (e) {
+    showToast('提交失败: ' + e.message);
+  }
+}
+
+async function loadSuggestions() {
+  const listEl = document.getElementById('suggest-list');
+  if (!listEl) return;
+  if (!supabaseClient) { listEl.textContent = '尚未连接 Supabase'; return; }
+  listEl.textContent = '加载中...';
+  try {
+    const { data, error } = await supabaseClient
+      .from('suggestions')
+      .select('title, content, email, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      listEl.innerHTML = '<div class="dup-empty">暂无建议</div>';
+      return;
+    }
+    listEl.innerHTML = data.map(function(s) {
+      const time = new Date(s.created_at).toLocaleString();
+      return '<div class="dup-group"><div class="dup-group-header">' +
+        escapeHtml(s.title || '（无标题）') +
+        '<span style="font-weight:400;font-size:12px;color:#999;margin-left:8px;">' + escapeHtml(s.email || '匿名') + ' · ' + time + '</span></div>' +
+        '<div style="font-size:13px;color:#333;line-height:1.6;white-space:pre-wrap;">' + escapeHtml(s.content) + '</div></div>';
+    }).join('');
+  } catch (e) {
+    listEl.innerHTML = '<div style="color:#dc3545;font-size:13px;">加载失败：' + escapeHtml(e.message) + '</div>';
+  }
+}
+
 // ==================== [MODIFIED] 修改点 9: 重写 saveData 函数，增加权限检查 ====================
 function saveData() {
   saveToLocalStorage();
@@ -947,20 +1035,32 @@ function resetToDefault() {
 // ==================== [MODIFIED] 修改点 12: 移除旧的 admin 解锁逻辑 ====================
 // 旧的 handleTitleClick, handleTitleLongPress, revealAdminTab 已删除
 
-// ==================== [MODIFIED] 修改点 13: 重写 switchTab 函数 ====================
+// ==================== [MODIFIED] 修改点 13: 重写 switchTab 函数（新增建议反馈页，后台仅管理员） ====================
 function switchTab(tab) {
+  if (tab === 'admin' && !(supabaseClient && isAdmin)) {
+    showToast('仅管理员可访问后台管理');
+    tab = 'suggest';
+  }
+  if (tab === 'suggest' && !currentUser) {
+    showToast('请先登录后再提交建议');
+    tab = 'generator';
+  }
+
   currentView = tab;
   document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
   document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+  document.getElementById('generator-view').style.display = 'none';
+  document.getElementById('suggest-view').style.display = 'none';
+  document.getElementById('admin-view').style.display = 'none';
   if (tab === 'generator') {
     document.getElementById('generator-view').style.display = 'flex';
-    document.getElementById('admin-view').style.display = 'none';
     renderSidebar(); renderTags(); renderSelectedTags();
+  } else if (tab === 'suggest') {
+    document.getElementById('suggest-view').style.display = 'block';
   } else {
-    document.getElementById('generator-view').style.display = 'none';
     document.getElementById('admin-view').style.display = 'block';
     updateAdminVisibility();
-    renderAdmin(); updateStats();
+    renderAdmin(); updateStats(); loadSuggestions();
   }
 }
 
