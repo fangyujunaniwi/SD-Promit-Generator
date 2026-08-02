@@ -1347,23 +1347,26 @@ function runDuplicateCheck() {
     });
     html += '</div>';
   });
+  html += '<div class="btn-group" style="margin-top:12px;"><button class="btn" onclick="mergeDuplicates(\'first\')">合并（保留上面）</button><button class="btn" onclick="mergeDuplicates(\'last\')">合并（保留下面）</button></div>';
   html += '</div>'; container.innerHTML = html; updateStats();
 }
 
-function mergeDuplicates() {
+function mergeDuplicates(mode) {
   if (!requireAdmin()) return;
   const result = findDuplicates();
   if (result.dupGroups.length === 0) { showToast('没有重复标签需要合并'); return; }
+  const keepLast = mode === 'last';
   let merged = 0;
   result.dupGroups.forEach(function(group) {
-    const removeIds = group.tags.slice(1).map(function(t) { return t.id; });
+    const keepIdx = keepLast ? group.tags.length - 1 : 0;
+    const removeIds = group.tags.filter(function(t, i) { return i !== keepIdx; }).map(function(t) { return t.id; });
     removeIds.forEach(function(id) { if (selectedTags.has(id)) selectedTags.delete(id); });
     tags = tags.filter(function(t) { return !removeIds.includes(t.id); });
     merged += removeIds.length;
   });
   saveData(); renderAll(); updateStats();
-  document.getElementById('dup-results').innerHTML = '<div class="dup-empty">重复标签已自动合并</div>';
-  showToast('已合并 ' + merged + ' 个重复标签');
+  document.getElementById('dup-results').innerHTML = '<div class="dup-empty">重复标签已自动合并' + (keepLast ? '（保留下面）' : '（保留上面）') + '</div>';
+  showToast('已合并 ' + merged + ' 个重复标签' + (keepLast ? '（保留下面）' : '（保留上面）'));
 }
 
 function getVisibleCategories() {
@@ -1435,7 +1438,11 @@ function renderSearchResults(area) {
   const query = globalSearchQuery.toLowerCase().trim();
   if (!query) { renderTags(); return; }
   const results = tags.filter(function(t) {
-    return t.name.toLowerCase().includes(query) || (t.cn && t.cn.toLowerCase().includes(query));
+    const matched = t.name.toLowerCase().includes(query) || (t.cn && t.cn.toLowerCase().includes(query));
+    if (!matched) return false;
+    if (showHiddenCategories) return true;
+    const cat = categories.find(function(c) { return c.id === t.catId; });
+    return !(cat && cat.hidden);
   });
   if (results.length === 0) { area.innerHTML = '<div class="empty-state">未找到包含 "' + escapeHtml(globalSearchQuery) + '" 的标签</div>'; return; }
   const grouped = {};
@@ -1561,7 +1568,7 @@ function renderTagTable() {
 
   tbody.innerHTML = filtered.map(function(tag) {
     const cat = categories.find(function(c) { return c.id === tag.catId; });
-    return '<tr><td class="tag-name-cell">' + tag.name + (tag.cn ? ' <span style="color:#999;font-size:12px;">(' + tag.cn + ')</span>' : '') + '</td><td class="tag-cat-cell">' + (cat ? cat.name : '未分类') + '</td><td><div class="weight-slider"><input type="range" min="0.1" max="2.0" step="0.1" value="' + tag.weight + '" onchange="updateTagWeight(\'' + tag.id + '\', this.value)" data-crud><span class="weight-value">' + tag.weight.toFixed(1) + '</span></div></td><td><div style="display:flex;gap:6px;align-items:center;"><button class="icon-btn" data-crud onclick="editTag(\'' + tag.id + '\')" title="编辑">E</button><button class="icon-btn delete" data-crud onclick="deleteTag(\'' + tag.id + '\')" title="删除">X</button></div></td></tr>';
+    return '<tr><td class="tag-name-cell">' + tag.name + (tag.cn ? ' <span style="color:#999;font-size:12px;">(' + tag.cn + ')</span>' : '') + '</td><td class="tag-cat-cell">' + (cat ? cat.name : '未分类') + '</td><td><div class="weight-slider"><input type="range" min="0.1" max="2.0" step="0.1" value="' + tag.weight + '" onchange="updateTagWeight(\'' + tag.id + '\', this.value)" data-crud><span class="weight-value">' + tag.weight.toFixed(1) + '</span></div></td><td><div style="display:flex;gap:6px;align-items:center;"><button class="icon-btn" data-crud onclick="editTag(\'' + tag.id + '\')" title="编辑">E</button><button class="icon-btn" data-crud onclick="moveTag(\'' + tag.id + '\')" title="移动分类">M</button><button class="icon-btn delete" data-crud onclick="deleteTag(\'' + tag.id + '\')" title="删除">X</button></div></td></tr>';
   }).join('');
 }
 
@@ -1788,6 +1795,37 @@ function editTag(tagId) {
 }
 
 function closeEditTagModal() { const modal = document.getElementById('edit-tag-modal'); if (modal) modal.remove(); }
+
+function moveTag(tagId) {
+  if (!requireAdmin()) return;
+  const tag = tags.find(function(t) { return t.id === tagId; });
+  if (!tag) return;
+  const catOptions = categories.map(function(c) {
+    return '<option value="' + c.id + '"' + (c.id === tag.catId ? ' selected' : '') + '>' + escapeHtml(c.name) + '</option>';
+  }).join('');
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'move-tag-modal';
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+  overlay.innerHTML = '<div class="modal-content"><div class="modal-title">移动标签到分类</div>' +
+    '<div class="modal-body">' +
+    '<div style="font-size:13px;color:#666;margin-bottom:12px;">' + escapeHtml(tag.name) + (tag.cn ? ' (' + escapeHtml(tag.cn) + ')' : '') + '</div>' +
+    '<div class="form-row"><label style="min-width:70px;">目标分类</label><select class="form-select" id="move-tag-cat" style="min-width:160px;">' + catOptions + '</select></div>' +
+    '</div>' +
+    '<div class="modal-footer"><button class="btn" id="move-tag-cancel">取消</button><button class="btn btn-primary" id="move-tag-save">保存</button></div></div>';
+  document.body.appendChild(overlay);
+  document.getElementById('move-tag-cancel').addEventListener('click', function() { overlay.remove(); });
+  document.getElementById('move-tag-save').addEventListener('click', function() {
+    if (!requireAdmin()) return;
+    const targetId = document.getElementById('move-tag-cat').value;
+    if (!targetId) { showToast('请选择分类'); return; }
+    tag.catId = targetId;
+    saveData(); renderAdmin(); renderSidebar(); renderTags(); renderSelectedTags(); updatePrompt(); updateStats();
+    overlay.remove();
+    const targetCat = categories.find(function(c) { return c.id === targetId; });
+    showToast('标签已移动到「' + (targetCat ? targetCat.name : '未分类') + '」');
+  });
+}
 
 function saveEditTag(tagId) {
   if (!requireAdmin()) return;
