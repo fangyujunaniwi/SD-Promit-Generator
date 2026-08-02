@@ -241,7 +241,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 }
 </style>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-<script src="https://v-cn.vaptcha.com/v3.js"></script>
 </head>
 <body>
 <div class="widget-root" id="app">
@@ -496,7 +495,35 @@ let isReadOnly = true; // 默认只读，直到确认是管理员
 let vaptchaVid = '';
 let vaptchaObj = null;
 let captchaApiPath = '/api/captcha';
+let vaptchaScriptLoading = false;
 window.captchaToken = '';
+
+// ==================== [MODIFIED] 新增：Vaptcha SDK 动态加载（多 CDN 回退） ====================
+function loadVaptchaScript(cb) {
+  if (typeof vaptcha !== 'undefined') { if (cb) cb(); return; }
+  if (vaptchaScriptLoading) return;
+  vaptchaScriptLoading = true;
+  const urls = [
+    'https://v.vaptcha.com/v3.js',
+    'https://v-cn.vaptcha.com/v3.js',
+    'https://cdn.vaptcha.com/v3.js'
+  ];
+  let idx = 0;
+  function tryNext() {
+    if (idx >= urls.length) {
+      vaptchaScriptLoading = false;
+      if (cb) cb();
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = urls[idx++];
+    s.async = true;
+    s.onload = function() { vaptchaScriptLoading = false; if (cb) cb(); };
+    s.onerror = function() { s.remove(); tryNext(); };
+    document.head.appendChild(s);
+  }
+  tryNext();
+}
 
 // ==================== [MODIFIED] 新增：Vaptcha 渲染与令牌管理 ====================
 function renderCaptcha() {
@@ -514,6 +541,13 @@ function renderCaptcha() {
   wrapper.innerHTML = '';
   wrapper.style.width = '300px';
   wrapper.style.height = '44px';
+  if (typeof vaptcha === 'undefined') {
+    wrapper.innerHTML = '<div style="font-size:12px;color:#999;padding:14px 0;">人机验证加载中...</div>';
+    loadVaptchaScript(function() {
+      if (document.getElementById('auth-modal').style.display !== 'none') renderCaptcha();
+    });
+    return;
+  }
   try {
     vaptcha({
       vid: vaptchaVid,
