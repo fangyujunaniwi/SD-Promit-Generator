@@ -1139,7 +1139,7 @@ async function saveToSupabase() {
   updateSyncStatus('syncing', '同步中...');
   try {
     const data = { categories: categories, tags: tags, savedAt: new Date().toISOString() };
-    const payload = { data: data, updated_at: new Date().toISOString() };
+    const payload = { data: data };
     const existing = await supabaseClient.from('sd_data').select('id').limit(1).maybeSingle();
     let error = existing.error && existing.error.code !== 'PGRST116' ? existing.error : null;
     if (!error) {
