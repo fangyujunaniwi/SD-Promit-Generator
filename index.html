@@ -497,16 +497,15 @@ let vaptchaObj = null;
 let captchaApiPath = '/api/captcha';
 let vaptchaScriptLoading = false;
 window.captchaToken = '';
+window.vaptchaVerify = null;
 
-// ==================== [MODIFIED] 新增：Vaptcha SDK 动态加载（多 CDN 回退） ====================
+// ==================== [MODIFIED] 新增：Vaptcha V4 SDK 动态加载 ====================
 function loadVaptchaScript(cb) {
   if (typeof vaptcha !== 'undefined') { if (cb) cb(); return; }
   if (vaptchaScriptLoading) return;
   vaptchaScriptLoading = true;
   const urls = [
-    'https://v.vaptcha.com/v3.js',
-    'https://v-cn.vaptcha.com/v3.js',
-    'https://cdn.vaptcha.com/v3.js'
+    'https://c4.vaptcha.com/src/v4.js'
   ];
   let idx = 0;
   function tryNext() {
@@ -525,22 +524,38 @@ function loadVaptchaScript(cb) {
   tryNext();
 }
 
-// ==================== [MODIFIED] 新增：Vaptcha 渲染与令牌管理 ====================
+// ==================== [MODIFIED] 新增：Vaptcha V4 渲染与令牌管理 ====================
+function renderVaptchaButton(wrapper) {
+  wrapper.innerHTML = '';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = window.captchaToken ? '✓ 已完成验证' : '点击进行人机验证';
+  btn.className = 'btn btn-primary';
+  btn.style.width = '100%';
+  btn.onclick = async function() {
+    try {
+      const result = await vaptchaObj.validate();
+      if (result && result.token && result.knock) {
+        window.vaptchaVerify = result;
+        window.captchaToken = result.token;
+        btn.textContent = '✓ 已完成验证';
+      }
+    } catch (e) {
+      console.error('Vaptcha validate error:', e);
+    }
+  };
+  wrapper.appendChild(btn);
+}
+
 function renderCaptcha() {
   const wrapper = document.getElementById('captcha-widget');
   if (!wrapper) return;
   window.captchaToken = '';
+  window.vaptchaVerify = null;
   if (!vaptchaVid) {
     wrapper.innerHTML = '<div style="font-size:12px;color:#999;padding:14px 0;">人机验证未配置，无法登录/注册</div>';
     return;
   }
-  if (vaptchaObj) {
-    try { vaptchaObj.reset(); } catch (e) {}
-    return;
-  }
-  wrapper.innerHTML = '';
-  wrapper.style.width = '300px';
-  wrapper.style.height = '44px';
   if (typeof vaptcha === 'undefined') {
     wrapper.innerHTML = '<div style="font-size:12px;color:#999;padding:14px 0;">人机验证加载中...</div>';
     loadVaptchaScript(function() {
@@ -548,21 +563,21 @@ function renderCaptcha() {
     });
     return;
   }
+  if (vaptchaObj) {
+    renderVaptchaButton(wrapper);
+    return;
+  }
+  wrapper.innerHTML = '';
   try {
+    const anchor = document.createElement('div');
+    wrapper.appendChild(anchor);
     vaptcha({
       vid: vaptchaVid,
-      type: 'click',
-      lang: 'zh-CN',
-      container: wrapper
+      container: anchor,
+      lang: 'zh-CN'
     }).then(function(obj) {
       vaptchaObj = obj;
-      vaptchaObj.render();
-      vaptchaObj.listen('pass', function() {
-        window.captchaToken = vaptchaObj.getToken() || 'passed';
-      });
-      vaptchaObj.listen('fail', function() {
-        window.captchaToken = '';
-      });
+      renderVaptchaButton(wrapper);
     }).catch(function(e) {
       console.error('Vaptcha init error:', e);
       wrapper.innerHTML = '<div style="font-size:12px;color:#dc3545;padding:14px 0;">人机验证加载失败</div>';
@@ -575,21 +590,21 @@ function renderCaptcha() {
 
 function resetCaptcha() {
   window.captchaToken = '';
-  if (vaptchaObj) {
-    try { vaptchaObj.reset(); } catch (e) {}
-  }
+  window.vaptchaVerify = null;
+  const wrapper = document.getElementById('captcha-widget');
+  if (wrapper && vaptchaObj) renderVaptchaButton(wrapper);
 }
 
-// ==================== [MODIFIED] 新增：Vaptcha 服务端二次校验 ====================
-async function verifyVaptcha(token) {
-  if (!token) return false;
+// ==================== [MODIFIED] 新增：Vaptcha V4 服务端二次校验 ====================
+async function verifyVaptcha(verify) {
+  if (!verify || !verify.token) return false;
   try {
     const controller = new AbortController();
     const timer = setTimeout(function() { controller.abort(); }, 8000);
     const resp = await fetch(captchaApiPath, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: token }),
+      body: JSON.stringify({ token: verify.token, knock: verify.knock || '', dfu: verify.dfu || '', ip: verify.ip || '' }),
       signal: controller.signal,
       cache: 'no-store'
     });
@@ -907,12 +922,12 @@ async function handleLogin() {
     return;
   }
 
-  if (!window.captchaToken) {
+  if (!window.captchaToken || !window.vaptchaVerify) {
     errorEl.textContent = '请先完成人机验证';
     return;
   }
 
-  const human = await verifyVaptcha(window.captchaToken);
+  const human = await verifyVaptcha(window.vaptchaVerify);
   if (!human) {
     resetCaptcha();
     errorEl.textContent = '人机验证校验失败，请重试';
@@ -963,12 +978,12 @@ async function handleRegister() {
     return;
   }
 
-  if (!window.captchaToken) {
+  if (!window.captchaToken || !window.vaptchaVerify) {
     errorEl.textContent = '请先完成人机验证';
     return;
   }
 
-  const human = await verifyVaptcha(window.captchaToken);
+  const human = await verifyVaptcha(window.vaptchaVerify);
   if (!human) {
     resetCaptcha();
     errorEl.textContent = '人机验证校验失败，请重试';
