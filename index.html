@@ -495,6 +495,7 @@ let isReadOnly = true; // 默认只读，直到确认是管理员
 // [MODIFIED] 新增：Vaptcha 人机验证相关状态
 let vaptchaVid = '';
 let vaptchaObj = null;
+let captchaApiPath = '/api/captcha';
 window.captchaToken = '';
 
 // ==================== [MODIFIED] 新增：Vaptcha 渲染与令牌管理 ====================
@@ -542,6 +543,28 @@ function resetCaptcha() {
   window.captchaToken = '';
   if (vaptchaObj) {
     try { vaptchaObj.reset(); } catch (e) {}
+  }
+}
+
+// ==================== [MODIFIED] 新增：Vaptcha 服务端二次校验 ====================
+async function verifyVaptcha(token) {
+  if (!token) return false;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(function() { controller.abort(); }, 8000);
+    const resp = await fetch(captchaApiPath, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: token }),
+      signal: controller.signal,
+      cache: 'no-store'
+    });
+    clearTimeout(timer);
+    if (!resp.ok) return false;
+    const data = await resp.json();
+    return data.ok === true;
+  } catch (e) {
+    return false;
   }
 }
 
@@ -596,6 +619,7 @@ async function autoLoadEnvConfig() {
       const vid = data.VAPTCHA_VID || data.vaptchaVid || data.vid || '';
       if (vid) vaptchaVid = vid;
       if (url && key) {
+        captchaApiPath = endpoints[i] === '/.netlify/functions/config' ? '/.netlify/functions/captcha' : '/api/captcha';
         document.getElementById('env-sb-url').value = url;
         document.getElementById('env-sb-key').value = key;
         localStorage.setItem(ENV_CONFIG_STORAGE, JSON.stringify({ url: url, key: key, source: 'server-env', savedAt: new Date().toISOString() }));
@@ -854,6 +878,13 @@ async function handleLogin() {
     return;
   }
 
+  const human = await verifyVaptcha(window.captchaToken);
+  if (!human) {
+    resetCaptcha();
+    errorEl.textContent = '人机验证校验失败，请重试';
+    return;
+  }
+
   try {
     const { data, error } = await supabaseClient.auth.signInWithPassword({
       email: email,
@@ -900,6 +931,13 @@ async function handleRegister() {
 
   if (!window.captchaToken) {
     errorEl.textContent = '请先完成人机验证';
+    return;
+  }
+
+  const human = await verifyVaptcha(window.captchaToken);
+  if (!human) {
+    resetCaptcha();
+    errorEl.textContent = '人机验证校验失败，请重试';
     return;
   }
 
