@@ -1146,11 +1146,16 @@ async function saveToSupabase() {
       if (existing.data && existing.data.id != null) {
         error = (await supabaseClient.from('sd_data').update(payload).eq('id', existing.data.id)).error;
       } else {
-        error = (await supabaseClient.from('sd_data').insert(payload)).error;
+        let ins = await supabaseClient.from('sd_data').insert(payload);
+        if (ins.error && (ins.error.code === '23502' || ins.error.code === '22P02' || /syntax|not-null|invalid input/i.test(ins.error.message || ''))) {
+          ins = await supabaseClient.from('sd_data').insert(Object.assign({ id: 1 }, payload));
+        }
+        error = ins.error;
       }
     }
 
     if (error) {
+      console.error('sd_data save error:', error.code, error.message, error.details);
       if (error.code === '42501') {
         showToast('权限不足：您不是管理员，无法写入云端');
         isReadOnly = true;
