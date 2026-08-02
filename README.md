@@ -1,91 +1,121 @@
 # SD-Promit-Generator
 
-Stable Diffusion 提示词生成器（单页应用），支持按分类浏览/搜索标签、组合生成提示词、后台管理标签库，并通过 Supabase 云端同步数据。
+Stable Diffusion 提示词生成器：按分类浏览/搜索标签，组合生成正向与负面提示词，管理员可在后台维护标签库，数据经 Supabase 云端同步。
 
 线上地址：https://sd-prompt-generator.pages.dev
 
-## 功能特性
+## 功能
 
-- **提示词生成**：按分类浏览标签，点击加入/移出，实时生成正向与负面提示词
-- **全局搜索**：按标签名 / 中文说明 / 分类快速检索
-- **权重调节**：每个标签可设置权重（0.1 – 2.0），生成时按权重输出
-- **后台管理**（仅管理员）：
-  - 分类管理：新增 / 重命名 / 改色 / 隐藏 / 删除 / 合并
-  - 标签管理：批量新增、搜索筛选、编辑（名称 / 中文说明 / 分类 / 权重）、删除
-- **建议反馈**（仅登录用户）：提交建议，管理员可查看 / 删除
-- **云端同步**：标签数据存入 Supabase，浏览器本地做缓存兜底
-- **人机验证**：Vaptcha V4 滑块验证 + 服务端二次校验，与 Supabase 认证解耦
-
-## 技术栈
-
-- 纯前端单页应用（原生 HTML / CSS / JS，`index.html`）
-- [Supabase](https://supabase.com)（Auth + Postgres）经 CDN 引入的 `@supabase/supabase-js`
-- Vaptcha V4 SDK（`https://c4.vaptcha.com/src/v4.js`），服务端校验走 `https://v41.vaptcha.com/api/verify`
-- Serverless 函数读取环境变量，适配三种平台：Vercel / Netlify / Cloudflare Pages
+- 标签浏览 / 全局搜索 / 权重调节（0.1–2.0）/ 实时生成提示词
+- 后台管理（仅管理员）：分类增删改色隐藏合并、标签批量新增/编辑/删除
+- 建议反馈（登录用户可提交，管理员可管理）
+- 标签数据云端同步（Supabase），本地缓存兜底
+- Vaptcha V4 人机验证（服务端二次校验，与 Supabase 认证解耦）
 
 ## 目录结构
 
 ```
-├── index.html                  # 主应用（全部前端逻辑与样式）
-├── api/
-│   ├── captcha.js              # Vercel：Vaptcha 二次校验
-│   └── config.js               # Vercel：暴露公开配置（VAPTCHA_VID）
-├── netlify/
-│   └── functions/
-│       ├── captcha.js          # Netlify 校验函数
-│       └── config.js           # Netlify 配置函数
-├── functions/
-│   └── api/
-│       ├── captcha.js          # Cloudflare Pages 校验函数
-│       └── config.js           # Cloudflare Pages 配置函数
-└── README.md
+index.html                # 主应用（全部前端逻辑与样式）
+api/                      # Vercel 函数（config / captcha 校验）
+netlify/functions/        # Netlify 函数
+functions/api/            # Cloudflare Pages 函数
 ```
 
-## 数据表（Supabase）
+## 部署教程（Cloudflare Pages）
 
-| 表 | 说明 |
+### 1. 创建 Supabase 项目并建表
+
+1. 注册 https://supabase.com → 新建项目（免费 512MB 足够个人使用）
+2. 左侧 **SQL Editor** → New query，粘贴执行下方 SQL：
+
+```sql
+-- 标签数据（单行 JSONB）
+create table if not exists sd_data (
+  id integer primary key,
+  data jsonb
+);
+
+-- 建议反馈
+create table if not exists suggestions (
+  id uuid primary key default gen_random_uuid(),
+  title text,
+  content text not null,
+  email text,
+  created_at timestamptz
+);
+
+-- 管理员白名单（user_id 为 Supabase Auth 用户的 UUID）
+create table if not exists admins (
+  user_id uuid primary key references auth.users(id),
+  email text
+);
+
+-- ===== 行级安全策略 =====
+alter table sd_data enable row level security;
+create policy "sd_data 公开读" on sd_data for select using (true);
+create policy "sd_data 管理员写" on sd_data for insert
+  with check (auth.uid() in (select user_id from admins));
+create policy "sd_data 管理员改" on sd_data for update
+  using (auth.uid() in (select user_id from admins));
+
+alter table suggestions enable row level security;
+create policy "建议 任何人提交" on suggestions for insert with check (true);
+create policy "建议 管理员读" on suggestions for select
+  using (auth.uid() in (select user_id from admins));
+create policy "建议 管理员删" on suggestions for delete
+  using (auth.uid() in (select user_id from admins));
+
+alter table admins enable row level security;
+create policy "管理员查自己" on admins for select using (user_id = auth.uid());
+```
+
+3. **Authentication → Providers → Email** 开启邮箱登录
+4. **Authentication → Users** 创建一个管理员账号，复制其 **User UUID**，在 SQL Editor 执行：
+
+```sql
+insert into admins (user_id, email) values ('粘贴用户UUID', '你的邮箱@example.com');
+```
+
+5. 确认 **Authentication → 设置** 中的 CAPTCHA（Bot and Abuse Protection）保持**关闭**
+
+### 2. 配置 Vaptcha V4
+
+1. 在 https://www.vaptcha.com 控制台创建 V4 验证单元，取得 `VID` 和 `VKEY`（V3 域名已被 DNS 封锁，必须用 V4）
+
+### 3. 部署到 Cloudflare Pages
+
+1. 将本仓库推送到 GitHub
+2. Cloudflare 控制台 → **Workers & Pages** → **Create** → **Pages** → **Connect to Git** → 选择仓库
+3. 构建设置：Framework preset 选 **None**，Build command 和 Build output directory 留空 → Deploy
+4. 部署完成后到 **Settings → Environment variables** 添加：
+
+| 变量 | 说明 |
 |---|---|
-| `sd_data` | 单行存储全部标签数据：`{ version, categories, tags, savedAt }`，读写用 upsert 单行策略 |
-| `suggestions` | 建议反馈：`id` + 提交内容等字段 |
-| `admins` | 管理员名单（`email` 匹配即管理员），后台入口仅管理员可见 |
+| `VAPTCHA_VID` | Vaptcha 验证单元 ID（公开） |
+| `VAPTCHA_VKEY` | Vaptcha 密钥（机密，仅服务端使用） |
+| `SUPABASE_URL` | Supabase 项目地址 |
+| `SUPABASE_ANON_KEY` | Supabase anon 公钥 |
 
-> 注意：代码不依赖 `sd_data.updated_at` 列，也兼容任意主键类型（读取用 `.limit(1).maybeSingle()`）。
+5. 每次修改环境变量后需在 **Deployments** 手动 **Redeploy** 生效
+6. 打开网站 → 右上角登录管理员账号 → 后台管理即可编辑标签
 
-## 部署（Cloudflare Pages）
+## 部署到 Vercel / Netlify
 
-1. 将本仓库连接到 Cloudflare Pages（Build 命令留空，输出目录留空，直接部署根目录静态站点）
-2. 在 **Settings → Environment variables** 配置环境变量（见下）
-3. 每次修改环境变量后需手动 **Redeploy** 生效
+- Vercel：自动识别 `api/` 目录，其余流程同上（环境变量在 Vercel 控制台配置）
+- Netlify：需把环境变量写进 `netlify/functions/config.js` 等函数读取的变量中，校验端点为 `/.netlify/functions/captcha`
 
-### 环境变量
+## 未来规划
 
-| 变量 | 必填 | 说明 |
-|---|---|---|
-| `VAPTCHA_VID` | 是 | Vaptcha V4 验证单元 ID（公开，用于前端初始化） |
-| `VAPTCHA_VKEY` | 是 | Vaptcha 密钥（机密，**只配置在服务端**，前端不可见） |
-| `SUPABASE_URL` | 是 | Supabase 项目地址 |
-| `SUPABASE_ANON_KEY` | 是 | Supabase anon 公钥 |
-
-## Vaptcha 说明
-
-- **必须使用 V4**（V3 的 SDK / 验证域名 `v.vaptcha.com`、`v-cn.vaptcha.com`、`cdn.vaptcha.com` 已被 DNS 封锁）
-- 前端流程：`vaptcha({ vid, container, lang: 'zh-CN' })` 初始化 → `validate()` 获取 `{ token, knock, dfu, ip }` → 登录/注册前调 `/api/captcha` 校验
-- 服务端校验：`POST https://v41.vaptcha.com/api/verify`，body 含 `vid, vkey, token, knock, dfu, ip`，返回 `data.result === true` 才算通过
-- 各平台校验端点：Vercel `/api/captcha`、Netlify `/.netlify/functions/captcha`、Cloudflare Pages `/api/captcha`
-- **Supabase 的 CAPTCHA（Bot and Abuse Protection）必须保持关闭**，验证与 Supabase 完全解耦，不传 captchaToken
-
-## 本地开发
-
-```bash
-# 需要本地跑 serverless 时，按平台在本地注入环境变量后启动：
-vercel dev          # Vercel
-netlify dev         # Netlify
-wrangler pages dev  # Cloudflare Pages
-```
-
-纯静态部分可直接用任意静态服务器打开 `index.html`，但人机验证 / 配置接口需要 serverless 函数支持。
+- 提示词历史记录与一键复制
+- 随机生成提示词（一键随机组合标签）
+- 深色模式
+- 建议反馈状态管理（待处理 / 已处理）
+- 标签库版本历史与一键回滚
+- 将当前提示词及参数导出为分享链接 / 图片
+- 社区共享标签库（订阅他人词库）
+- 移动端体验优化
 
 ## 常见问题
 
-- **登录提示验证码校验失败**：检查 Vaptcha 返回码——`code 1` 鉴权不过（常见 IP 不一致）、`code 2` token 过期、`code 3/4` token 不存在或其它
-- **提示 `missing: VAPTCHA_VKEY`**：服务端未读取到 Vaptcha 密钥，检查环境变量是否已配置并已 Redeploy
+- **提示 `missing: VAPTCHA_VKEY`**：服务端未读到密钥，检查环境变量并 Redeploy
+- **验证码失败**：Vaptcha 返回 `code 1` 鉴权不过（常见 IP 不一致）、`code 2` token 过期、`code 3/4` token 不存在
