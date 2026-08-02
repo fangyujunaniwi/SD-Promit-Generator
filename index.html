@@ -172,6 +172,48 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 .sync-indicator.error .sync-dot { background: #dc3545; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
+/* [MODIFIED] 新增：后台管理 PC 端布局优化 */
+#admin-view, #suggest-view { max-width: 1180px; width: 100%; margin: 0 auto; }
+.admin-section {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 22px 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.admin-section-title { font-size: 16px; font-weight: 600; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+.admin-section-title .section-count { font-size: 12px; font-weight: 500; color: #999; background: #f0f0f0; padding: 2px 10px; border-radius: 12px; }
+.stat-card {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.stat-value { font-size: 30px; font-weight: 700; color: #1a1a1a; }
+.category-card {
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.category-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.dup-panel, .storage-panel { background: #fff; }
+.tag-table th { position: sticky; top: 0; background: #fafafa; }
+.suggest-item {
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  background: #fafafa;
+}
+.suggest-item-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.suggest-item-title { font-weight: 600; font-size: 14px; }
+.suggest-item-meta { font-size: 12px; color: #999; display: flex; gap: 12px; flex-wrap: wrap; }
+.suggest-item-content { font-size: 13px; color: #333; line-height: 1.7; white-space: pre-wrap; margin-bottom: 10px; }
+
 @media (max-width: 900px) {
   .sidebar { width: 180px; }
   .preview-panel { width: 280px; }
@@ -199,6 +241,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 }
 </style>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="https://js.hcaptcha.com/1/api.js" async defer></script>
 </head>
 <body>
 <div class="widget-root" id="app">
@@ -282,40 +325,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
     </div>
   </div>
 
-  <div class="admin-panel" id="admin-view" style="display:none;">
-    <!-- [MODIFIED] 新增：只读提示横幅 -->
-    <div class="readonly-banner" id="readonly-banner">
-      &#x26A0; 您当前以访客身份访问，只能查看数据，无法进行修改操作。请联系管理员获取编辑权限。
-    </div>
-
-    <div class="admin-section" id="admin-auth-section">
-      <div class="admin-section-title">Supabase 配置与登录</div>
-      <div style="font-size:13px;color:#666;margin-bottom:12px;">
-        本应用采用 Serverless 架构，数据存储在 Supabase 云端。所有人共享同一份数据。<br>
-        <b>普通用户</b>：无需登录即可查看所有标签和分类。<br>
-        <b>管理员</b>：需要登录 Supabase 账号，拥有读写权限。
-      </div>
-      <div class="env-config-panel">
-        <div class="env-config-row">
-          <input type="text" class="form-input" id="env-sb-url" placeholder="Supabase URL (如: https://xxx.supabase.co)" style="min-width:300px;">
-          <input type="password" class="form-input" id="env-sb-key" placeholder="Supabase Anon Key" style="min-width:300px;">
-        </div>
-        <div class="form-row">
-          <button class="btn btn-primary" onclick="saveEnvConfig()">保存配置</button>
-          <button class="btn" onclick="loadEnvConfig()">加载已保存配置</button>
-          <button class="btn btn-danger" onclick="clearEnvConfig()">清除配置</button>
-          <button class="btn btn-success" onclick="connectSupabase()">连接 Supabase</button>
-        </div>
-        <div class="env-hint">
-          配置保存后，点击「连接 Supabase」即可使用。数据将自动从云端同步。<br>
-          需要在 Supabase 中创建表并配置 RLS 策略（详见下方说明）。
-        </div>
-      </div>
+    <div class="admin-panel" id="admin-view" style="display:none;">
+    <div style="display:none;">
+      <input type="text" id="env-sb-url">
+      <input type="password" id="env-sb-key">
     </div>
 
     <div id="admin-content" style="display:none;">
-      <!-- [MODIFIED] 新增：用户管理区域 -->
-      <div class="admin-section" id="user-mgmt-section">
+      <div class="admin-section">
         <div class="admin-section-title">当前用户</div>
         <div class="storage-panel">
           <div id="current-user-info" style="font-size:14px;margin-bottom:12px;">
@@ -329,27 +346,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
       </div>
 
       <div class="admin-section">
-        <div class="admin-section-title">数据持久化</div>
+        <div class="admin-section-title">连接状态</div>
         <div class="storage-panel">
-          <div class="storage-info">
-            <div class="storage-status">
-              <span class="status-dot ok" id="storage-status-dot"></span>
-              <span id="storage-status-text">Supabase 云存储模式</span>
-            </div>
-            <br><br>
-            <div id="storage-mode-desc">当前使用 <b>Supabase 云存储</b>，数据保存在云端，所有人共享同一份数据。</div>
-            <div id="supabase-connection-status" style="margin-top:8px;font-size:13px;color:#666;"></div>
-            <br>
-            <b>适用于 Vercel / Netlify / Cloudflare Pages 等 Serverless 部署。</b>
+          <div class="storage-status">
+            <span class="status-dot ok" id="storage-status-dot"></span>
+            <span id="storage-status-text">Supabase 云存储模式</span>
           </div>
-          <div class="form-row">
-            <button class="btn btn-primary" onclick="exportData()">导出 JSON 备份</button>
-            <div class="file-input-wrapper">
-              <button class="btn btn-success" data-crud>导入 JSON 恢复</button>
-              <input type="file" id="import-file" accept=".json" onchange="importData(this)">
-            </div>
-            <button class="btn btn-danger" data-crud onclick="resetToDefault()">重置为默认</button>
+          <div id="supabase-connection-status" style="margin-top:8px;font-size:13px;color:#666;"></div>
+          <div class="form-row" style="margin-top:12px;">
+            <button class="btn btn-primary" onclick="connectSupabase()">重新连接</button>
           </div>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">数据持久化</div>
+        <div class="form-row">
+          <button class="btn btn-primary" onclick="exportData()">导出 JSON 备份</button>
+          <div class="file-input-wrapper">
+            <button class="btn btn-success">导入 JSON 恢复</button>
+            <input type="file" id="import-file" accept=".json" onchange="importData(this)">
+          </div>
+          <button class="btn btn-danger" onclick="resetToDefault()">重置为默认</button>
         </div>
       </div>
 
@@ -362,8 +380,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
       <div class="admin-section">
         <div class="admin-section-title">查重检测</div>
         <div class="form-row">
-          <button class="btn btn-primary" data-crud onclick="runDuplicateCheck()">运行查重</button>
-          <button class="btn btn-warning" data-crud onclick="mergeDuplicates()">自动合并重复</button>
+          <button class="btn btn-primary" onclick="runDuplicateCheck()">运行查重</button>
+          <button class="btn btn-warning" onclick="mergeDuplicates()">自动合并重复</button>
         </div>
         <div id="dup-results"></div>
       </div>
@@ -373,7 +391,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
         <div class="form-row">
           <input type="text" class="form-input" id="new-cat-name" placeholder="分类名称（如：质量词）">
           <div class="color-picker-row" id="color-picker"></div>
-          <button class="btn btn-primary" data-crud onclick="addCategory()" style="flex:0 0 auto;">+ 添加分类</button>
+          <button class="btn btn-primary" onclick="addCategory()" style="flex:0 0 auto;">+ 添加分类</button>
         </div>
         <div id="category-list"></div>
       </div>
@@ -384,13 +402,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
           <select class="form-select" id="merge-source-select"></select>
           <span style="font-size:14px;color:#666;">合并到 &rarr;</span>
           <select class="form-select" id="merge-target-select"></select>
-          <button class="btn btn-warning" data-crud onclick="mergeCategories()">合并分类</button>
+          <button class="btn btn-warning" onclick="mergeCategories()">合并分类</button>
         </div>
-        <div style="font-size:13px;color:#999;">将源分类的所有标签移动到目标分类，然后删除源分类。已选标签会自动更新。</div>
+        <div style="font-size:13px;color:#999;">将源分类的所有标签移动到目标分类，然后删除源分类。</div>
       </div>
 
       <div class="admin-section">
-        <div class="admin-section-title">批量添加标签（支持查重）</div>
+        <div class="admin-section-title">批量添加标签</div>
         <div class="form-row">
           <select class="form-select" id="batch-cat-select"></select>
           <label style="font-size:13px;color:#666;"><input type="checkbox" id="skip-dup-check" style="margin-right:4px;"> 跳过已存在的标签</label>
@@ -401,14 +419,13 @@ bird 鸟
 fish 鱼
 
 格式：英文标签 + 空格 + 中文说明（可选）
-每行一个，支持批量粘贴
-会自动检测并跳过已存在的重复标签"></textarea>
-        <div class="batch-hint">支持格式：英文标签 + 空格 + 中文说明。每行一个标签，回车换行。添加时会自动查重。</div>
-        <button class="btn btn-primary" data-crud onclick="batchAddTags()">批量添加</button>
+每行一个，添加时自动查重"></textarea>
+        <div class="batch-hint">支持格式：英文标签 + 空格 + 中文说明。每行一个标签，添加时自动查重。</div>
+        <button class="btn btn-primary" onclick="batchAddTags()">批量添加</button>
       </div>
 
       <div class="admin-section">
-        <div class="admin-section-title">标签列表（按分类管理）</div>
+        <div class="admin-section-title">标签列表</div>
         <div class="tag-filter-row">
           <select class="form-select" id="tag-filter-cat" onchange="renderTagTable()">
             <option value="">全部分类</option>
@@ -423,69 +440,13 @@ fish 鱼
         </div>
       </div>
 
-      <!-- [MODIFIED] 新增：RLS 配置说明 -->
       <div class="admin-section">
-        <div class="admin-section-title">Supabase RLS 配置说明</div>
-        <div class="storage-panel">
-          <div style="font-size:13px;color:#666;line-height:1.8;">
-            <p><b>1. 创建数据表：</b></p>
-            <pre style="background:#f5f5f5;padding:12px;border-radius:8px;overflow-x:auto;font-size:12px;margin:8px 0;"><code>CREATE TABLE public.sd_data (
-  id INT PRIMARY KEY,
-  data JSONB NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-INSERT INTO public.sd_data (id, data) VALUES (1, '{}'::jsonb);</code></pre>
-            <p><b>2. 启用 RLS：</b></p>
-            <pre style="background:#f5f5f5;padding:12px;border-radius:8px;overflow-x:auto;font-size:12px;margin:8px 0;"><code>ALTER TABLE public.sd_data ENABLE ROW LEVEL SECURITY;</code></pre>
-            <p><b>3. 创建读取策略（所有人可读）：</b></p>
-            <pre style="background:#f5f5f5;padding:12px;border-radius:8px;overflow-x:auto;font-size:12px;margin:8px 0;"><code>CREATE POLICY "Allow public read" ON public.sd_data
-  FOR SELECT TO anon, authenticated USING (true);</code></pre>
-            <p><b>4. 创建写入策略（仅管理员可写）：</b></p>
-            <pre style="background:#f5f5f5;padding:12px;border-radius:8px;overflow-x:auto;font-size:12px;margin:8px 0;"><code>-- 创建管理员表
-CREATE TABLE public.admins (
-  user_id UUID PRIMARY KEY REFERENCES auth.users(id)
-);
-
--- 添加管理员（在 Supabase SQL Editor 中执行）
-INSERT INTO public.admins (user_id) VALUES ('你的用户UUID');
-
--- 创建管理员检查函数
-CREATE OR REPLACE FUNCTION public.is_admin()
-RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM public.admins WHERE user_id = auth.uid()
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- 写入策略
-CREATE POLICY "Allow admin write" ON public.sd_data
-  FOR ALL TO authenticated
-  USING (public.is_admin())
-  WITH CHECK (public.is_admin());</code></pre>
-            <p><b>5. 配置说明：</b></p>
-            <ul style="margin-left:20px;margin-top:8px;">
-              <li>匿名用户(anon)和已登录用户(authenticated)都可以读取数据</li>
-              <li>只有管理员可以插入、更新、删除数据</li>
-              <li>管理员身份通过在 <code>public.admins</code> 表中添加用户UUID来设置</li>
-              <li>所有用户共享同一份 <code>sd_data</code> 表中的数据</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- [MODIFIED] 新增：用户建议（仅管理员查看） -->
-    <div class="admin-section">
-      <div class="admin-section-title">用户建议</div>
-      <div class="storage-panel">
+        <div class="admin-section-title">用户建议<span class="section-count" id="suggest-count">0</span></div>
         <div id="suggest-list" style="font-size:13px;color:#666;">加载中...</div>
-        <div class="form-row" style="margin-top:8px;">
+        <div class="form-row" style="margin-top:12px;">
           <button class="btn" onclick="loadSuggestions()">刷新建议</button>
         </div>
       </div>
-    </div>
     </div>
   </div>
 
@@ -511,6 +472,8 @@ CREATE POLICY "Allow admin write" ON public.sd_data
       <input type="password" id="register-password-confirm" placeholder="确认密码" autocomplete="new-password">
       <button class="btn btn-primary" onclick="handleRegister()">注册</button>
     </div>
+    <!-- [MODIFIED] 新增：hCaptcha 人机验证 -->
+    <div id="captcha-widget" style="margin-top:12px;display:flex;justify-content:center;"></div>
     <div class="auth-divider">或</div>
     <button class="btn" onclick="closeAuthModal()">取消</button>
     <div id="auth-error" style="color:#dc3545;font-size:13px;margin-top:12px;text-align:center;"></div>
@@ -528,6 +491,48 @@ let supabaseClient = null;
 let currentUser = null;
 let isAdmin = false;
 let isReadOnly = true; // 默认只读，直到确认是管理员
+
+// [MODIFIED] 新增：hCaptcha 相关状态
+let captchaSiteKey = '';
+let captchaWidgetId = null;
+window.captchaToken = '';
+
+// ==================== [MODIFIED] 新增：hCaptcha 渲染与令牌管理 ====================
+function renderCaptcha() {
+  const wrapper = document.getElementById('captcha-widget');
+  if (!wrapper) return;
+  wrapper.innerHTML = '';
+  if (!captchaSiteKey || typeof hcaptcha === 'undefined') {
+    wrapper.innerHTML = '<div style="font-size:12px;color:#999;">人机验证未配置，无法登录/注册</div>';
+    return;
+  }
+  if (captchaWidgetId != null) {
+    try { hcaptcha.reset(captchaWidgetId); } catch (e) {}
+    try { hcaptcha.remove(captchaWidgetId); } catch (e) {}
+    captchaWidgetId = null;
+  }
+  window.captchaToken = '';
+  try {
+    const div = document.createElement('div');
+    wrapper.appendChild(div);
+    captchaWidgetId = hcaptcha.render(div, {
+      sitekey: captchaSiteKey,
+      size: 'normal',
+      callback: function(token) { window.captchaToken = token; },
+      'expired-callback': function() { window.captchaToken = ''; }
+    });
+  } catch (e) {
+    console.error('hCaptcha render error:', e);
+    wrapper.innerHTML = '<div style="font-size:12px;color:#dc3545;">人机验证加载失败</div>';
+  }
+}
+
+function resetCaptcha() {
+  window.captchaToken = '';
+  if (typeof hcaptcha !== 'undefined' && captchaWidgetId != null) {
+    try { hcaptcha.reset(captchaWidgetId); } catch (e) {}
+  }
+}
 
 function saveEnvConfig() {
   const url = document.getElementById('env-sb-url').value.trim();
@@ -577,12 +582,15 @@ async function autoLoadEnvConfig() {
       const data = await resp.json();
       const url = data.SUPABASE_URL || data.url || data.supabaseUrl || '';
       const key = data.SUPABASE_ANON_KEY || data.key || data.anonKey || '';
+      const siteKey = data.HCAPTCHA_SITE_KEY || data.hcaptchaSiteKey || data.siteKey || '';
+      if (siteKey) captchaSiteKey = siteKey;
       if (url && key) {
         document.getElementById('env-sb-url').value = url;
         document.getElementById('env-sb-key').value = key;
         localStorage.setItem(ENV_CONFIG_STORAGE, JSON.stringify({ url: url, key: key, source: 'server-env', savedAt: new Date().toISOString() }));
         updateSyncStatus('syncing', '自动连接中...');
         await connectSupabase();
+        if (document.getElementById('auth-modal').style.display !== 'none') renderCaptcha();
         return;
       }
     } catch (e) {
@@ -594,11 +602,22 @@ async function autoLoadEnvConfig() {
 
 // ==================== [MODIFIED] 修改点 3: 连接 Supabase 时初始化认证状态监听 ====================
 async function connectSupabase() {
-  const url = document.getElementById('env-sb-url').value.trim();
-  const key = document.getElementById('env-sb-key').value.trim();
+  let url = document.getElementById('env-sb-url').value.trim();
+  let key = document.getElementById('env-sb-key').value.trim();
 
   if (!url || !key) {
-    showToast('请填写 Supabase URL 和 Anon Key');
+    try {
+      const saved = localStorage.getItem(ENV_CONFIG_STORAGE);
+      if (saved) {
+        const cfg = JSON.parse(saved);
+        url = cfg.url || '';
+        key = cfg.key || '';
+      }
+    } catch (e) {}
+  }
+
+  if (!url || !key) {
+    showToast('未找到 Supabase 配置，请先通过环境变量或本地配置提供');
     return;
   }
 
@@ -761,20 +780,12 @@ function updateTabVisibility() {
 // ==================== [MODIFIED] 修改点 6: 更新管理员界面可见性函数（仅管理员可见后台） ====================
 function updateAdminVisibility() {
   const adminContent = document.getElementById('admin-content');
-  const readonlyBanner = document.getElementById('readonly-banner');
   const adminTabBtn = document.getElementById('admin-tab-btn');
 
   const canSeeAdmin = !!(supabaseClient && isAdmin);
 
-  if (canSeeAdmin) {
-    adminContent.style.display = 'block';
-    readonlyBanner.classList.remove('show');
-    adminTabBtn.style.display = 'inline-block';
-  } else {
-    adminContent.style.display = 'none';
-    readonlyBanner.classList.remove('show');
-    adminTabBtn.style.display = 'none';
-  }
+  if (adminContent) adminContent.style.display = canSeeAdmin ? 'block' : 'none';
+  if (adminTabBtn) adminTabBtn.style.display = canSeeAdmin ? 'inline-block' : 'none';
 
   // 非管理员若停留在后台视图，自动切到建议反馈页
   if (!canSeeAdmin && currentView === 'admin') {
@@ -791,10 +802,11 @@ function updateAdminVisibility() {
   });
 }
 
-// ==================== [MODIFIED] 修改点 7: 新增认证模态框相关函数 ====================
+// ==================== [MODIFIED] 修改点 7: 新增认证模态框相关函数（含 hCaptcha） ====================
 function openAuthModal() {
   document.getElementById('auth-modal').style.display = 'flex';
   document.getElementById('auth-error').textContent = '';
+  renderCaptcha();
 }
 
 function closeAuthModal() {
@@ -808,6 +820,7 @@ function switchAuthTab(tab) {
   document.getElementById('auth-form-login').style.display = tab === 'login' ? 'flex' : 'none';
   document.getElementById('auth-form-register').style.display = tab === 'register' ? 'flex' : 'none';
   document.getElementById('auth-error').textContent = '';
+  resetCaptcha();
 }
 
 async function handleLogin() {
@@ -828,7 +841,8 @@ async function handleLogin() {
   try {
     const { data, error } = await supabaseClient.auth.signInWithPassword({
       email: email,
-      password: password
+      password: password,
+      options: { captchaToken: window.captchaToken || '' }
     });
 
     if (error) throw error;
@@ -841,6 +855,7 @@ async function handleLogin() {
       renderAdmin(); updateStats();
     }
   } catch (err) {
+    resetCaptcha();
     errorEl.textContent = '登录失败: ' + err.message;
   }
 }
@@ -871,7 +886,8 @@ async function handleRegister() {
   try {
     const { data, error } = await supabaseClient.auth.signUp({
       email: email,
-      password: password
+      password: password,
+      options: { captchaToken: window.captchaToken || '' }
     });
 
     if (error) throw error;
@@ -884,6 +900,7 @@ async function handleRegister() {
     closeAuthModal();
     showToast('注册成功，请检查邮箱验证（如启用）');
   } catch (err) {
+    resetCaptcha();
     errorEl.textContent = '注册失败: ' + err.message;
   }
 }
@@ -936,29 +953,46 @@ async function submitSuggestion() {
 
 async function loadSuggestions() {
   const listEl = document.getElementById('suggest-list');
+  const countEl = document.getElementById('suggest-count');
   if (!listEl) return;
   if (!supabaseClient) { listEl.textContent = '尚未连接 Supabase'; return; }
   listEl.textContent = '加载中...';
   try {
     const { data, error } = await supabaseClient
       .from('suggestions')
-      .select('title, content, email, created_at')
+      .select('id, title, content, email, created_at')
       .order('created_at', { ascending: false })
       .limit(100);
     if (error) throw error;
+    if (countEl) countEl.textContent = data ? data.length : 0;
     if (!data || data.length === 0) {
       listEl.innerHTML = '<div class="dup-empty">暂无建议</div>';
       return;
     }
     listEl.innerHTML = data.map(function(s) {
       const time = new Date(s.created_at).toLocaleString();
-      return '<div class="dup-group"><div class="dup-group-header">' +
-        escapeHtml(s.title || '（无标题）') +
-        '<span style="font-weight:400;font-size:12px;color:#999;margin-left:8px;">' + escapeHtml(s.email || '匿名') + ' · ' + time + '</span></div>' +
-        '<div style="font-size:13px;color:#333;line-height:1.6;white-space:pre-wrap;">' + escapeHtml(s.content) + '</div></div>';
+      return '<div class="suggest-item"><div class="suggest-item-header">' +
+        '<span class="suggest-item-title">' + escapeHtml(s.title || '（无标题）') + '</span>' +
+        '<button class="icon-btn delete" title="删除建议" onclick="deleteSuggestion(\'' + s.id + '\')">&#x1F5D1;</button></div>' +
+        '<div class="suggest-item-content">' + escapeHtml(s.content) + '</div>' +
+        '<div class="suggest-item-meta"><span>' + escapeHtml(s.email || '匿名') + '</span><span>' + time + '</span></div></div>';
     }).join('');
   } catch (e) {
     listEl.innerHTML = '<div style="color:#dc3545;font-size:13px;">加载失败：' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+async function deleteSuggestion(id) {
+  if (!requireAdmin()) return;
+  if (!id) return;
+  if (!confirm('确定删除这条建议？')) return;
+  try {
+    const { error } = await supabaseClient.from('suggestions').delete().eq('id', id);
+    if (error) throw error;
+    showToast('建议已删除');
+    loadSuggestions();
+  } catch (e) {
+    showToast('删除失败: ' + e.message);
   }
 }
 
