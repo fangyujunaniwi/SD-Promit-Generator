@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SD Prompt Generator - Stable Diffusion 提示词生成器</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #1a1a1a; background: #f5f5f5; min-height: 100vh; overflow-x: hidden; }
+.widget-root { width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #fff; }
+.nav-bar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #e5e5e5; background: #fafafa; position: relative; z-index: 10; flex-wrap: wrap; gap: 8px; }
+.nav-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; user-select: none; }
+.nav-tabs { display: flex; gap: 4px; align-items: center; }
+.nav-tab { padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; border: none; background: transparent; color: #666; }
+.nav-tab:hover { background: #f0f0f0; }
+.nav-tab.active { background: #1a1a1a; color: #fff; }
+.nav-search { display: flex; align-items: center; gap: 8px; flex: 1; max-width: 400px; margin: 0 16px; min-width: 0; }
+.search-input { padding: 8px 14px; border-radius: 8px; border: 1px solid #e5e5e5; font-size: 14px; flex: 1; background: #fff; color: #1a1a1a; outline: none; transition: border-color 0.2s; }
+.search-input:focus { border-color: #1a1a1a; }
+.search-btn { padding: 8px 14px; border-radius: 8px; border: 1px solid #e5e5e5; background: #fff; cursor: pointer; font-size: 14px; transition: all 0.15s; }
+.search-btn:hover { background: #f0f0f0; }
+.toggle-wrapper { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #666; cursor: pointer; user-select: none; }
+.toggle-switch { position: relative; width: 36px; height: 20px; background: #ccc; border-radius: 10px; transition: background 0.2s; cursor: pointer; flex-shrink: 0; }
+.toggle-switch.on { background: #22c55e; }
+.toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.toggle-switch.on::after { transform: translateX(16px); }
+.main-content { flex: 1; display: flex; overflow: hidden; }
+.sidebar { width: 220px; border-right: 1px solid #e5e5e5; overflow-y: auto; padding: 12px; background: #fafafa; }
+.category-item { padding: 10px 14px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; transition: all 0.15s; color: #666; }
+.category-item:hover { background: #f0f0f0; color: #1a1a1a; }
+.category-item.active { background: #1a1a1a; color: #fff; }
+.category-item.hidden-cat { opacity: 0.5; font-style: italic; }
+.category-item.hidden-cat.active { opacity: 1; background: #666; }
+.category-count { font-size: 11px; padding: 2px 6px; border-radius: 10px; background: rgba(0,0,0,0.1); font-weight: 400; }
+.category-item.active .category-count { background: rgba(255,255,255,0.2); }
+.tag-area { flex: 1; overflow-y: auto; padding: 20px; }
+.tag-section-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.tag-section-title .color-dot { width: 10px; height: 10px; border-radius: 50%; }
+.tags-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+.tag-chip { padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.15s; border: 1px solid #e5e5e5; background: #fafafa; color: #1a1a1a; user-select: none; display: flex; align-items: center; gap: 6px; touch-action: manipulation; -webkit-touch-callout: none; }
+.tag-chip:hover { border-color: #1a1a1a; transform: translateY(-1px); }
+.tag-chip.selected { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+.tag-chip .weight-badge { font-size: 10px; padding: 1px 5px; border-radius: 8px; background: rgba(255,255,255,0.2); display: none; }
+.tag-chip.selected .weight-badge { display: inline; }
+.search-results-title { font-size: 14px; color: #666; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e5; }
+.search-result-group { margin-bottom: 20px; }
+.search-result-group-header { font-size: 14px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.search-result-group-header .color-dot { width: 8px; height: 8px; border-radius: 50%; }
+.search-result-group-header .cat-name { color: #1a1a1a; }
+.search-result-group-header .cat-count { font-size: 12px; color: #999; font-weight: 400; }
+.preview-panel { width: 340px; border-left: 1px solid #e5e5e5; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: #fafafa; }
+.panel-title { font-size: 14px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+.prompt-box { flex: 1; min-height: 120px; padding: 14px; border-radius: 10px; border: 1px solid #e5e5e5; background: #fff; font-size: 14px; line-height: 1.6; resize: none; font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace; color: #1a1a1a; }
+.prompt-box:focus { outline: none; border-color: #1a1a1a; }
+.selected-tags-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; }
+.selected-tag-item { padding: 4px 10px; border-radius: 16px; font-size: 12px; background: #f0f0f0; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.15s; }
+.selected-tag-item:hover { background: #dc3545; color: #fff; }
+.btn-group { display: flex; gap: 8px; }
+.btn { padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid #e5e5e5; background: #fff; color: #1a1a1a; transition: all 0.15s; flex: 1; text-align: center; }
+.btn:hover { background: #f0f0f0; }
+.btn-primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-danger { color: #dc3545; border-color: #dc3545; }
+.btn-danger:hover { background: #dc3545; color: #fff; }
+.btn-warning { color: #f59e0b; border-color: #f59e0b; }
+.btn-warning:hover { background: #f59e0b; color: #fff; }
+.btn-success { color: #22c55e; border-color: #22c55e; }
+.btn-success:hover { background: #22c55e; color: #fff; }
+.admin-panel { padding: 24px; overflow-y: auto; }
+.admin-section { margin-bottom: 32px; }
+.admin-section-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+.form-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
+.form-input { padding: 10px 14px; border-radius: 8px; border: 1px solid #e5e5e5; font-size: 14px; flex: 1; min-width: 120px; background: #fff; color: #1a1a1a; }
+.form-input:focus { outline: none; border-color: #1a1a1a; }
+.form-select { padding: 10px 14px; border-radius: 8px; border: 1px solid #e5e5e5; font-size: 14px; min-width: 160px; background: #fff; color: #1a1a1a; }
+.textarea-batch { width: 100%; min-height: 180px; padding: 14px; border-radius: 10px; border: 1px solid #e5e5e5; font-size: 14px; font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace; resize: vertical; background: #fff; color: #1a1a1a; line-height: 1.6; }
+.textarea-batch:focus { outline: none; border-color: #1a1a1a; }
+.batch-hint { font-size: 12px; color: #999; margin-top: 6px; margin-bottom: 12px; }
+.category-card { padding: 14px 16px; border-radius: 10px; border: 1px solid #e5e5e5; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; background: #fff; }
+.category-card-info { display: flex; align-items: center; gap: 12px; }
+.category-color { width: 14px; height: 14px; border-radius: 4px; cursor: pointer; transition: transform 0.15s; }
+.category-color:hover { transform: scale(1.2); }
+.category-card-name { font-size: 15px; font-weight: 500; }
+.category-card-count { font-size: 13px; color: #999; }
+.category-card-actions { display: flex; gap: 6px; }
+.icon-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #e5e5e5; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #666; transition: all 0.15s; }
+.icon-btn:hover { background: #f0f0f0; color: #1a1a1a; }
+.icon-btn.delete:hover { background: #dc3545; color: #fff; border-color: #dc3545; }
+.tag-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tag-table th { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e5e5e5; font-weight: 600; color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.tag-table td { padding: 10px 12px; border-bottom: 1px solid #e5e5e5; }
+.tag-table tr:hover td { background: #f0f0f0; }
+.tag-table .tag-name-cell { font-weight: 500; }
+.tag-table .tag-cat-cell { font-size: 12px; color: #999; }
+.weight-slider { display: flex; align-items: center; gap: 8px; }
+.weight-slider input[type="range"] { width: 80px; }
+.weight-value { font-size: 12px; font-family: 'SF Mono', Monaco, monospace; min-width: 36px; text-align: center; padding: 2px 6px; border-radius: 4px; background: #f0f0f0; }
+.empty-state { text-align: center; padding: 60px 20px; color: #999; }
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); padding: 12px 24px; border-radius: 10px; background: #1a1a1a; color: #fff; font-size: 14px; z-index: 1000; opacity: 0; transition: all 0.3s ease; pointer-events: none; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.search-box { padding: 10px 14px; border-radius: 10px; border: 1px solid #e5e5e5; font-size: 14px; width: 100%; margin-bottom: 12px; background: #fff; color: #1a1a1a; }
+.search-box:focus { outline: none; border-color: #1a1a1a; }
+.color-picker-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.color-option { width: 28px; height: 28px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; }
+.color-option:hover { transform: scale(1.1); }
+.color-option.selected { border-color: #1a1a1a; }
+.dup-panel { padding: 16px; border-radius: 10px; border: 1px solid #e5e5e5; background: #fff; margin-bottom: 16px; }
+.dup-panel-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.dup-group { margin-bottom: 12px; padding: 10px 12px; border-radius: 8px; background: #f5f5f5; }
+.dup-group-header { font-size: 13px; font-weight: 600; color: #dc3545; margin-bottom: 6px; }
+.dup-item { font-size: 13px; color: #666; padding: 2px 0; display: flex; align-items: center; gap: 8px; }
+.dup-item .dup-cat { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #eee; }
+.dup-empty { color: #22c55e; font-size: 14px; padding: 8px 0; }
+.stats-row { display: flex; gap: 16px; margin-bottom: 16px; }
+.stat-card { padding: 14px 20px; border-radius: 10px; border: 1px solid #e5e5e5; background: #fff; flex: 1; text-align: center; }
+.stat-value { font-size: 28px; font-weight: 700; color: #1a1a1a; }
+.stat-label { font-size: 12px; color: #999; margin-top: 4px; }
+.storage-panel { padding: 16px; border-radius: 10px; border: 1px solid #e5e5e5; background: #fff; margin-bottom: 16px; }
+.storage-info { font-size: 13px; color: #666; margin-bottom: 12px; line-height: 1.6; }
+.storage-info code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', Monaco, monospace; font-size: 12px; }
+.storage-status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; }
+.status-dot.ok { background: #22c55e; }
+.status-dot.warn { background: #f59e0b; }
+.status-dot.err { background: #dc3545; }
+.file-input-wrapper { position: relative; display: inline-block; }
+.file-input-wrapper input[type="file"] { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.hidden-badge { font-size: 10px; padding: 1px 5px; border-radius: 4px; background: #f59e0b; color: #fff; margin-left: 4px; }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+.modal-content { background: #fff; border-radius: 12px; padding: 24px; max-width: 480px; width: 90%; max-height: 80vh; overflow-y: auto; }
+.modal-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+.modal-body { margin-bottom: 16px; }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; }
+.admin-unlock { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.admin-unlock input { padding: 10px 14px; border-radius: 8px; border: 1px solid #e5e5e5; font-size: 14px; flex: 1; min-width: 120px; max-width: 300px; }
+.admin-unlock .btn { flex: 0 0 auto; padding: 10px 20px; }
+.tag-filter-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
+.tag-filter-row .form-select { min-width: 180px; }
+.env-config-panel { padding: 16px; border-radius: 10px; border: 1px solid #e5e5e5; background: #fff; margin-bottom: 16px; }
+.env-config-row { display: flex; gap: 12px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
+.env-config-row .form-input { min-width: 280px; }
+.env-hint { font-size: 12px; color: #999; margin-top: 6px; }
+
+/* [MODIFIED] 新增：用户状态栏样式 */
+.user-bar { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.user-bar .user-email { color: #666; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-bar .user-role { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #e5e5e5; color: #666; }
+.user-bar .user-role.admin { background: #22c55e; color: #fff; }
+.user-bar .user-role.guest { background: #f59e0b; color: #fff; }
+
+/* [MODIFIED] 新增：登录模态框样式 */
+.auth-modal .modal-content { max-width: 420px; }
+.auth-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid #e5e5e5; padding-bottom: 8px; }
+.auth-tab { padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; border: none; background: transparent; color: #666; }
+.auth-tab.active { background: #1a1a1a; color: #fff; }
+.auth-form { display: flex; flex-direction: column; gap: 12px; }
+.auth-form input { padding: 12px 14px; border-radius: 8px; border: 1px solid #e5e5e5; font-size: 14px; width: 100%; }
+.auth-form input:focus { outline: none; border-color: #1a1a1a; }
+.auth-form .btn { width: 100%; margin-top: 4px; }
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 8px 0; color: #999; font-size: 13px; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: #e5e5e5; }
+
+/* [MODIFIED] 新增：只读提示样式 */
+.readonly-banner { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #92400e; margin-bottom: 16px; display: none; }
+.readonly-banner.show { display: block; }
+
+/* [MODIFIED] 新增：同步状态指示器 */
+.sync-indicator { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #999; }
+.sync-indicator .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: #ccc; }
+.sync-indicator.syncing .sync-dot { background: #f59e0b; animation: pulse 1s infinite; }
+.sync-indicator.synced .sync-dot { background: #22c55e; }
+.sync-indicator.error .sync-dot { background: #dc3545; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* [MODIFIED] 新增：后台管理 PC 端布局优化 */
+#admin-view, #suggest-view { max-width: 1180px; width: 100%; margin: 0 auto; }
+.admin-section {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 22px 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.admin-section-title { font-size: 16px; font-weight: 600; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+.admin-section-title .section-count { font-size: 12px; font-weight: 500; color: #999; background: #f0f0f0; padding: 2px 10px; border-radius: 12px; }
+.stat-card {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.stat-value { font-size: 30px; font-weight: 700; color: #1a1a1a; }
+.category-card {
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.category-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.dup-panel, .storage-panel { background: #fff; }
+.tag-table th { position: sticky; top: 0; background: #fafafa; }
+.suggest-item {
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  background: #fafafa;
+}
+.suggest-item-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.suggest-item-title { font-weight: 600; font-size: 14px; }
+.suggest-item-meta { font-size: 12px; color: #999; display: flex; gap: 12px; flex-wrap: wrap; }
+.suggest-item-content { font-size: 13px; color: #333; line-height: 1.7; white-space: pre-wrap; margin-bottom: 10px; }
+
+@media (max-width: 900px) {
+  .sidebar { width: 180px; }
+  .preview-panel { width: 280px; }
+  .nav-search { max-width: 250px; }
+}
+
+@media (max-width: 700px) {
+  .nav-bar { padding: 8px 12px; }
+  .nav-title { font-size: 14px; }
+  .main-content { flex-direction: column; }
+  .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e5e5e5; max-height: 280px; overflow-x: hidden; }
+  .sidebar .nav-search { width: 100%; max-width: none; margin: 0 0 8px 0; }
+  .preview-panel { width: 100%; border-left: none; border-top: 1px solid #e5e5e5; }
+  .admin-panel { padding: 16px; }
+  .stats-row { flex-direction: column; }
+  .form-row { flex-direction: column; align-items: stretch; }
+  .admin-unlock { flex-direction: column; align-items: stretch; }
+  .admin-unlock input { max-width: 100%; }
+  .admin-unlock .btn { width: 100%; }
+  .tag-filter-row { flex-direction: column; align-items: stretch; }
+  .tag-filter-row .form-select { width: 100%; }
+  .env-config-row { flex-direction: column; align-items: stretch; }
+  .env-config-row .form-input { min-width: auto; width: 100%; }
+  .user-bar .user-email { max-width: 100px; }
+}
+</style>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+</head>
+<body>
+<div class="widget-root" id="app">
+  <div class="nav-bar">
+    <div class="nav-title" id="nav-title">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>
+      SD Prompt Generator
+      <!-- [MODIFIED] 新增：同步状态指示器 -->
+      <span class="sync-indicator" id="sync-indicator" style="margin-left:8px;">
+        <span class="sync-dot"></span>
+        <span id="sync-text">未连接</span>
+      </span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="nav-tabs">
+        <button class="nav-tab active" data-tab="generator" onclick="switchTab('generator')">生成器</button>
+        <button class="nav-tab" data-tab="suggest" id="suggest-tab-btn" style="display:none;" onclick="switchTab('suggest')">建议反馈</button>
+        <button class="nav-tab" data-tab="admin" id="admin-tab-btn" style="display:none;" onclick="switchTab('admin')">后台管理</button>
+      </div>
+      <!-- [MODIFIED] 新增：用户状态栏 -->
+      <div class="user-bar" id="user-bar">
+        <span id="user-status">未登录</span>
+        <button class="btn btn-primary" id="auth-btn" onclick="openAuthModal()" style="padding:6px 14px;font-size:13px;">登录</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-content" id="generator-view">
+    <div class="sidebar" id="category-sidebar">
+      <div style="padding-bottom:12px;border-bottom:1px solid #e5e5e5;margin-bottom:8px;">
+        <div class="nav-search" id="nav-search-box" style="margin-bottom:8px;width:100%;max-width:none;margin-left:0;margin-right:0;">
+          <input type="text" class="search-input" id="global-search" placeholder="搜索标签或分类..." oninput="onGlobalSearch(this.value)">
+          <button class="search-btn" onclick="clearGlobalSearch()">&#x2715;</button>
+        </div>
+        <label class="toggle-wrapper" id="show-hidden-toggle-wrapper" style="display:none;font-size:12px;">
+          <div class="toggle-switch" id="show-hidden-toggle" onclick="toggleShowHidden()"></div>
+          <span>显示隐藏分类</span>
+        </label>
+      </div>
+      <div id="category-list-container"></div>
+    </div>
+    <div class="tag-area" id="tag-area"></div>
+    <div class="preview-panel" id="preview-panel">
+      <div class="panel-title">提示词</div>
+      <textarea class="prompt-box" id="prompt-text" placeholder="点击左侧标签构建提示词..."></textarea>
+      <div class="panel-title">已选标签</div>
+      <div class="selected-tags-list" id="selected-tags-list"></div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="copyPrompt()">复制</button>
+        <button class="btn" onclick="clearAll()">清空</button>
+      </div>
+      <div class="panel-title" style="margin-top:8px;">快捷操作</div>
+      <div class="btn-group">
+        <button class="btn" onclick="addWeightToAll(0.1)">全部+0.1</button>
+        <button class="btn" onclick="addWeightToAll(-0.1)">全部-0.1</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="admin-panel" id="suggest-view" style="display:none;">
+    <div class="admin-section">
+      <div class="admin-section-title">提交建议</div>
+      <div class="storage-panel">
+        <div style="font-size:13px;color:#666;margin-bottom:12px;line-height:1.8;">
+          欢迎提出你的想法！可以建议新增标签、新分类、改进功能或报告问题。<br>
+          建议提交后，管理员会在后台查看并处理。
+        </div>
+        <div class="form-row">
+          <input type="text" class="form-input" id="suggest-title" placeholder="标题（可选）" style="max-width:400px;">
+        </div>
+        <textarea class="textarea-batch" id="suggest-content" placeholder="请输入你的建议内容..."></textarea>
+        <div class="form-row">
+          <button class="btn btn-primary" onclick="submitSuggestion()">提交建议</button>
+        </div>
+        <div id="suggest-result"></div>
+      </div>
+    </div>
+  </div>
+
+    <div class="admin-panel" id="admin-view" style="display:none;">
+    <div style="display:none;">
+      <input type="text" id="env-sb-url">
+      <input type="password" id="env-sb-key">
+    </div>
+
+    <div id="admin-content" style="display:none;">
+      <div class="admin-section">
+        <div class="admin-section-title">当前用户</div>
+        <div class="storage-panel">
+          <div id="current-user-info" style="font-size:14px;margin-bottom:12px;">
+            未登录
+          </div>
+          <div class="form-row">
+            <button class="btn btn-primary" id="login-btn" onclick="openAuthModal()">登录 / 注册</button>
+            <button class="btn btn-danger" id="logout-btn" onclick="logout()" style="display:none;">退出登录</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">连接状态</div>
+        <div class="storage-panel">
+          <div class="storage-status">
+            <span class="status-dot ok" id="storage-status-dot"></span>
+            <span id="storage-status-text">Supabase 云存储模式</span>
+          </div>
+          <div id="supabase-connection-status" style="margin-top:8px;font-size:13px;color:#666;"></div>
+          <div class="form-row" style="margin-top:12px;">
+            <button class="btn btn-primary" onclick="connectSupabase()">重新连接</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">数据持久化</div>
+        <div class="form-row">
+          <button class="btn btn-primary" onclick="exportData()">导出 JSON 备份</button>
+          <div class="file-input-wrapper">
+            <button class="btn btn-success">导入 JSON 恢复</button>
+            <input type="file" id="import-file" accept=".json" onchange="importData(this)">
+          </div>
+          <button class="btn btn-danger" onclick="resetToDefault()">重置为默认</button>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-value" id="stat-cats">0</div><div class="stat-label">分类数</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-tags">0</div><div class="stat-label">标签总数</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-dups">0</div><div class="stat-label">重复标签</div></div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">查重检测</div>
+        <div class="form-row">
+          <button class="btn btn-primary" onclick="runDuplicateCheck()">运行查重</button>
+          <button class="btn btn-warning" onclick="mergeDuplicates()">自动合并重复</button>
+        </div>
+        <div id="dup-results"></div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">分类管理</div>
+        <div class="form-row">
+          <input type="text" class="form-input" id="new-cat-name" placeholder="分类名称（如：质量词）">
+          <div class="color-picker-row" id="color-picker"></div>
+          <button class="btn btn-primary" onclick="addCategory()" style="flex:0 0 auto;">+ 添加分类</button>
+        </div>
+        <div id="category-list"></div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">分类合并</div>
+        <div class="form-row">
+          <select class="form-select" id="merge-source-select"></select>
+          <span style="font-size:14px;color:#666;">合并到 &rarr;</span>
+          <select class="form-select" id="merge-target-select"></select>
+          <button class="btn btn-warning" onclick="mergeCategories()">合并分类</button>
+        </div>
+        <div style="font-size:13px;color:#999;">将源分类的所有标签移动到目标分类，然后删除源分类。</div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">批量添加标签</div>
+        <div class="form-row">
+          <select class="form-select" id="batch-cat-select"></select>
+          <label style="font-size:13px;color:#666;"><input type="checkbox" id="skip-dup-check" style="margin-right:4px;"> 跳过已存在的标签</label>
+        </div>
+        <textarea class="textarea-batch" id="batch-tags" placeholder="cat 猫
+dog 狗
+bird 鸟
+fish 鱼
+
+格式：英文标签 + 空格 + 中文说明（可选）
+每行一个，添加时自动查重"></textarea>
+        <div class="batch-hint">支持格式：英文标签 + 空格 + 中文说明。每行一个标签，添加时自动查重。</div>
+        <button class="btn btn-primary" onclick="batchAddTags()">批量添加</button>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">标签列表</div>
+        <div class="tag-filter-row">
+          <select class="form-select" id="tag-filter-cat" onchange="renderTagTable()">
+            <option value="">全部分类</option>
+          </select>
+          <input type="text" class="form-input" id="tag-search" placeholder="搜索标签..." oninput="renderTagTable()" style="min-width:200px;">
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="tag-table" id="tag-table">
+            <thead><tr><th>标签</th><th>分类</th><th>权重</th><th>操作</th></tr></thead>
+            <tbody id="tag-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">用户建议<span class="section-count" id="suggest-count">0</span></div>
+        <div id="suggest-list" style="font-size:13px;color:#666;">加载中...</div>
+        <div class="form-row" style="margin-top:12px;">
+          <button class="btn" onclick="loadSuggestions()">刷新建议</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<!-- [MODIFIED] 新增：登录/注册模态框 -->
+<div class="modal-overlay auth-modal" id="auth-modal" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-title">用户登录</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')" id="auth-tab-login">登录</button>
+      <button class="auth-tab" onclick="switchAuthTab('register')" id="auth-tab-register">注册</button>
+    </div>
+    <div class="auth-form" id="auth-form-login">
+      <input type="email" id="login-email" placeholder="邮箱地址" autocomplete="email">
+      <input type="password" id="login-password" placeholder="密码" autocomplete="current-password">
+      <button class="btn btn-primary" onclick="handleLogin()">登录</button>
+    </div>
+    <div class="auth-form" id="auth-form-register" style="display:none;">
+      <input type="email" id="register-email" placeholder="邮箱地址" autocomplete="email">
+      <input type="password" id="register-password" placeholder="密码（至少6位）" autocomplete="new-password">
+      <input type="password" id="register-password-confirm" placeholder="确认密码" autocomplete="new-password">
+      <button class="btn btn-primary" onclick="handleRegister()">注册</button>
+    </div>
+    <!-- [MODIFIED] 新增：hCaptcha 人机验证 -->
+    <div id="captcha-widget" style="margin-top:12px;display:flex;justify-content:center;"></div>
+    <div class="auth-divider">或</div>
+    <button class="btn" onclick="closeAuthModal()">取消</button>
+    <div id="auth-error" style="color:#dc3545;font-size:13px;margin-top:12px;text-align:center;"></div>
+  </div>
+</div>
+
+<script>
+// ==================== [MODIFIED] 修改点 1: 移除旧的本地管理员哈希系统，改用 Supabase Auth ====================
+// 旧的 ADMIN_HASH_STORAGE 和 sha256 函数已删除
+
+const ENV_CONFIG_STORAGE = 'sd_env_config';
+
+// ==================== [MODIFIED] 修改点 2: 全局状态新增用户认证相关变量 ====================
+let supabaseClient = null;
+let currentUser = null;
+let isAdmin = false;
+let isReadOnly = true; // 默认只读，直到确认是管理员
+
+// [MODIFIED] 新增：Cloudflare Turnstile 人机验证相关状态
+let turnstileSiteKey = '';
+let turnstileWidgetId = null;
+window.captchaToken = '';
+
+// ==================== [MODIFIED] 新增：Turnstile 渲染与令牌管理 ====================
+function renderCaptcha() {
+  const wrapper = document.getElementById('captcha-widget');
+  if (!wrapper) return;
+  wrapper.innerHTML = '';
+  if (!turnstileSiteKey || typeof turnstile === 'undefined') {
+    wrapper.innerHTML = '<div style="font-size:12px;color:#999;">人机验证未配置，无法登录/注册</div>';
+    return;
+  }
+  if (turnstileWidgetId != null) {
+    try { turnstile.remove(turnstileWidgetId); } catch (e) {}
+    turnstileWidgetId = null;
+  }
+  window.captchaToken = '';
+  try {
+    const div = document.createElement('div');
+    wrapper.appendChild(div);
+    turnstileWidgetId = turnstile.render(div, {
+      sitekey: turnstileSiteKey,
+      theme: 'light',
+      callback: function(token) { window.captchaToken = token; },
+      'expired-callback': function() { window.captchaToken = ''; },
+      'error-callback': function() { window.captchaToken = ''; }
+    });
+  } catch (e) {
+    console.error('Turnstile render error:', e);
+    wrapper.innerHTML = '<div style="font-size:12px;color:#dc3545;">人机验证加载失败</div>';
+  }
+}
+
+function resetCaptcha() {
+  window.captchaToken = '';
+  if (typeof turnstile !== 'undefined' && turnstileWidgetId != null) {
+    try { turnstile.reset(turnstileWidgetId); } catch (e) {}
+  }
+}
+
+function saveEnvConfig() {
+  const url = document.getElementById('env-sb-url').value.trim();
+  const key = document.getElementById('env-sb-key').value.trim();
+  if (!url && !key) {
+    showToast('请输入至少一项配置');
+    return;
+  }
+  const config = { url: url, key: key, savedAt: new Date().toISOString() };
+  localStorage.setItem(ENV_CONFIG_STORAGE, JSON.stringify(config));
+  showToast('环境变量配置已保存');
+}
+
+function loadEnvConfig() {
+  try {
+    const saved = localStorage.getItem(ENV_CONFIG_STORAGE);
+    if (saved) {
+      const config = JSON.parse(saved);
+      document.getElementById('env-sb-url').value = config.url || '';
+      document.getElementById('env-sb-key').value = config.key || '';
+      showToast('已加载保存的配置');
+    } else {
+      showToast('没有已保存的配置');
+    }
+  } catch (e) {
+    showToast('加载配置失败');
+  }
+}
+
+function clearEnvConfig() {
+  localStorage.removeItem(ENV_CONFIG_STORAGE);
+  document.getElementById('env-sb-url').value = '';
+  document.getElementById('env-sb-key').value = '';
+  showToast('配置已清除');
+}
+
+// ==================== [MODIFIED] 新增：从 Serverless 平台自动读取环境变量 ====================
+async function autoLoadEnvConfig() {
+  const endpoints = ['/api/config', '/.netlify/functions/config'];
+  for (let i = 0; i < endpoints.length; i++) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(function() { controller.abort(); }, 5000);
+      const resp = await fetch(endpoints[i] + '?t=' + Date.now(), { signal: controller.signal, cache: 'no-store' });
+      clearTimeout(timer);
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      const url = data.SUPABASE_URL || data.url || data.supabaseUrl || '';
+      const key = data.SUPABASE_ANON_KEY || data.key || data.anonKey || '';
+      const siteKey = data.TURNSTILE_SITE_KEY || data.turnstileSiteKey || data.siteKey || '';
+      if (siteKey) turnstileSiteKey = siteKey;
+      if (url && key) {
+        document.getElementById('env-sb-url').value = url;
+        document.getElementById('env-sb-key').value = key;
+        localStorage.setItem(ENV_CONFIG_STORAGE, JSON.stringify({ url: url, key: key, source: 'server-env', savedAt: new Date().toISOString() }));
+        updateSyncStatus('syncing', '自动连接中...');
+        await connectSupabase();
+        if (document.getElementById('auth-modal').style.display !== 'none') renderCaptcha();
+        return;
+      }
+    } catch (e) {
+      // 继续尝试下一个端点
+    }
+  }
+  loadEnvConfig();
+}
+
+// ==================== [MODIFIED] 修改点 3: 连接 Supabase 时初始化认证状态监听 ====================
+async function connectSupabase() {
+  let url = document.getElementById('env-sb-url').value.trim();
+  let key = document.getElementById('env-sb-key').value.trim();
+
+  if (!url || !key) {
+    try {
+      const saved = localStorage.getItem(ENV_CONFIG_STORAGE);
+      if (saved) {
+        const cfg = JSON.parse(saved);
+        url = cfg.url || '';
+        key = cfg.key || '';
+      }
+    } catch (e) {}
+  }
+
+  if (!url || !key) {
+    showToast('未找到 Supabase 配置，请先通过环境变量或本地配置提供');
+    return;
+  }
+
+  updateSyncStatus('syncing', '连接中...');
+
+  try {
+    supabaseClient = supabase.createClient(url, key, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true
+      }
+    });
+
+    // 监听认证状态变化
+    supabaseClient.auth.onAuthStateChange(function(event, session) {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        currentUser = session.user;
+        checkAdminStatus();
+      } else if (event === 'SIGNED_OUT') {
+        currentUser = null;
+        isAdmin = false;
+        isReadOnly = true;
+        updateUserUI();
+        updateAdminVisibility();
+      }
+    });
+
+    // 获取当前会话
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) {
+      currentUser = session.user;
+      await checkAdminStatus();
+    } else {
+      updateUserUI();
+    }
+
+    // 尝试读取数据验证连接
+    const { data, error } = await supabaseClient
+      .from('sd_data')
+      .select('data')
+      .eq('id', 1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      if (error.code === '42P01') {
+        throw new Error('表 sd_data 不存在，请先创建表');
+      }
+      throw error;
+    }
+
+    if (data && data.data) {
+      const cloudData = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
+      if (cloudData.categories && cloudData.tags) {
+        categories = cloudData.categories;
+        tags = cloudData.tags;
+        categories.forEach(function(c) { if (typeof c.hidden === 'undefined') c.hidden = false; });
+        selectedTags.clear();
+        activeCategoryId = getVisibleCategories()[0] ? getVisibleCategories()[0].id : (categories[0] ? categories[0].id : '');
+        saveToLocalStorage();
+        renderAll(); updateStats(); updateHiddenToggleVisibility();
+        updateSyncStatus('synced', '已连接');
+        showToast('Supabase 已连接，数据已同步');
+      } else {
+        await saveToSupabase();
+        updateSyncStatus('synced', '已连接');
+        showToast('Supabase 已连接，数据已上传');
+      }
+    } else {
+      await saveToSupabase();
+      updateSyncStatus('synced', '已连接');
+      showToast('Supabase 已连接，已创建云端数据');
+    }
+
+    updateAdminVisibility();
+
+  } catch (err) {
+    updateSyncStatus('error', '连接失败');
+    showToast('Supabase 连接失败: ' + err.message);
+    console.error('Supabase connection error:', err);
+  }
+}
+
+// ==================== [MODIFIED] 修改点 4: 新增检查管理员状态函数 ====================
+async function checkAdminStatus() {
+  if (!supabaseClient || !currentUser) {
+    isAdmin = false;
+    isReadOnly = true;
+    updateUserUI();
+    updateAdminVisibility();
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('admins')
+      .select('user_id')
+      .eq('user_id', currentUser.id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Admin check error:', error);
+      isAdmin = false;
+    } else {
+      isAdmin = !!data;
+    }
+  } catch (e) {
+    isAdmin = false;
+  }
+
+  isReadOnly = !isAdmin;
+  updateUserUI();
+  updateAdminVisibility();
+}
+
+// ==================== [MODIFIED] 修改点 5: 新增更新用户UI函数 ====================
+function updateUserUI() {
+  const userBar = document.getElementById('user-bar');
+  const loginBtn = document.getElementById('login-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  const currentUserInfo = document.getElementById('current-user-info');
+
+  if (currentUser) {
+    const roleClass = isAdmin ? 'admin' : 'guest';
+    const roleText = isAdmin ? '管理员' : '普通用户';
+    userBar.innerHTML = `
+      <span class="user-email">${escapeHtml(currentUser.email || '未知用户')}</span>
+      <span class="user-role ${roleClass}">${roleText}</span>
+      <button class="btn" onclick="logout()" style="padding:6px 14px;font-size:13px;">退出</button>
+    `;
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (logoutBtn) logoutBtn.style.display = 'inline-block';
+    if (currentUserInfo) {
+      currentUserInfo.innerHTML = `
+        <div><b>邮箱：</b>${escapeHtml(currentUser.email || '未知')}</div>
+        <div><b>角色：</b><span style="color:${isAdmin ? '#22c55e' : '#f59e0b'}">${roleText}</span></div>
+        <div><b>权限：</b>${isAdmin ? '读写（可修改分类、标签）' : '只读（仅可查看和复制提示词）'}</div>
+      `;
+    }
+  } else {
+    userBar.innerHTML = `
+      <span id="user-status">未登录</span>
+      <button class="btn btn-primary" onclick="openAuthModal()" style="padding:6px 14px;font-size:13px;">登录</button>
+    `;
+    if (loginBtn) loginBtn.style.display = 'inline-block';
+    if (logoutBtn) logoutBtn.style.display = 'none';
+    if (currentUserInfo) {
+      currentUserInfo.innerHTML = '未登录 — 您可以匿名查看所有数据，但无法修改。登录后可获取更多权限。';
+    }
+  }
+  updateTabVisibility();
+}
+
+// [MODIFIED] 新增：仅登录用户可见「建议反馈」入口
+function updateTabVisibility() {
+  const suggestTab = document.getElementById('suggest-tab-btn');
+  if (suggestTab) suggestTab.style.display = currentUser ? 'inline-block' : 'none';
+}
+
+// ==================== [MODIFIED] 修改点 6: 更新管理员界面可见性函数（仅管理员可见后台） ====================
+function updateAdminVisibility() {
+  const adminContent = document.getElementById('admin-content');
+  const adminTabBtn = document.getElementById('admin-tab-btn');
+
+  const canSeeAdmin = !!(supabaseClient && isAdmin);
+
+  if (adminContent) adminContent.style.display = canSeeAdmin ? 'block' : 'none';
+  if (adminTabBtn) adminTabBtn.style.display = canSeeAdmin ? 'inline-block' : 'none';
+
+  // 非管理员若停留在后台视图，自动切到建议反馈页
+  if (!canSeeAdmin && currentView === 'admin') {
+    switchTab('suggest');
+  }
+
+  // 管理员模式下所有按钮可用
+  const editButtons = document.querySelectorAll('#admin-content [data-crud]');
+  editButtons.forEach(function(btn) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    btn.title = '';
+  });
+}
+
+// ==================== [MODIFIED] 修改点 7: 新增认证模态框相关函数（含 hCaptcha） ====================
+function openAuthModal() {
+  document.getElementById('auth-modal').style.display = 'flex';
+  document.getElementById('auth-error').textContent = '';
+  renderCaptcha();
+}
+
+function closeAuthModal() {
+  document.getElementById('auth-modal').style.display = 'none';
+  document.getElementById('auth-error').textContent = '';
+}
+
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.getElementById('auth-tab-' + tab).classList.add('active');
+  document.getElementById('auth-form-login').style.display = tab === 'login' ? 'flex' : 'none';
+  document.getElementById('auth-form-register').style.display = tab === 'register' ? 'flex' : 'none';
+  document.getElementById('auth-error').textContent = '';
+  resetCaptcha();
+}
+
+async function handleLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errorEl = document.getElementById('auth-error');
+
+  if (!email || !password) {
+    errorEl.textContent = '请输入邮箱和密码';
+    return;
+  }
+
+  if (!supabaseClient) {
+    errorEl.textContent = '请先连接 Supabase';
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email: email,
+      password: password,
+      options: { captchaToken: window.captchaToken || '' }
+    });
+
+    if (error) throw error;
+
+    currentUser = data.user;
+    await checkAdminStatus();
+    closeAuthModal();
+    showToast('登录成功');
+    if (currentView === 'admin') {
+      renderAdmin(); updateStats();
+    }
+  } catch (err) {
+    resetCaptcha();
+    errorEl.textContent = '登录失败: ' + err.message;
+  }
+}
+
+async function handleRegister() {
+  const email = document.getElementById('register-email').value.trim();
+  const password = document.getElementById('register-password').value;
+  const confirm = document.getElementById('register-password-confirm').value;
+  const errorEl = document.getElementById('auth-error');
+
+  if (!email || !password) {
+    errorEl.textContent = '请输入邮箱和密码';
+    return;
+  }
+  if (password.length < 6) {
+    errorEl.textContent = '密码至少6位';
+    return;
+  }
+  if (password !== confirm) {
+    errorEl.textContent = '两次输入的密码不一致';
+    return;
+  }
+  if (!supabaseClient) {
+    errorEl.textContent = '请先连接 Supabase';
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseClient.auth.signUp({
+      email: email,
+      password: password,
+      options: { captchaToken: window.captchaToken || '' }
+    });
+
+    if (error) throw error;
+
+    currentUser = data.user;
+    isAdmin = false;
+    isReadOnly = true;
+    updateUserUI();
+    updateAdminVisibility();
+    closeAuthModal();
+    showToast('注册成功，请检查邮箱验证（如启用）');
+  } catch (err) {
+    resetCaptcha();
+    errorEl.textContent = '注册失败: ' + err.message;
+  }
+}
+
+async function logout() {
+  if (!supabaseClient) return;
+  try {
+    await supabaseClient.auth.signOut();
+    currentUser = null;
+    isAdmin = false;
+    isReadOnly = true;
+    updateUserUI();
+    updateAdminVisibility();
+    showToast('已退出登录');
+  } catch (err) {
+    showToast('退出失败: ' + err.message);
+  }
+}
+
+// ==================== [MODIFIED] 修改点 8: 新增同步状态更新函数 ====================
+function updateSyncStatus(status, text) {
+  const indicator = document.getElementById('sync-indicator');
+  const syncText = document.getElementById('sync-text');
+  indicator.className = 'sync-indicator ' + status;
+  syncText.textContent = text;
+}
+
+// ==================== [MODIFIED] 新增：建议提交与管理员查看 ====================
+async function submitSuggestion() {
+  const title = document.getElementById('suggest-title').value.trim();
+  const content = document.getElementById('suggest-content').value.trim();
+  if (!content) { showToast('请输入建议内容'); return; }
+  if (!supabaseClient) { showToast('请先连接 Supabase'); return; }
+  try {
+    const { error } = await supabaseClient.from('suggestions').insert({
+      title: title || null,
+      content: content,
+      email: currentUser ? currentUser.email : null,
+      created_at: new Date().toISOString()
+    });
+    if (error) throw error;
+    document.getElementById('suggest-title').value = '';
+    document.getElementById('suggest-content').value = '';
+    document.getElementById('suggest-result').innerHTML = '<div class="dup-empty">建议已提交，感谢你的反馈！</div>';
+    showToast('建议已提交');
+  } catch (e) {
+    showToast('提交失败: ' + e.message);
+  }
+}
+
+async function loadSuggestions() {
+  const listEl = document.getElementById('suggest-list');
+  const countEl = document.getElementById('suggest-count');
+  if (!listEl) return;
+  if (!supabaseClient) { listEl.textContent = '尚未连接 Supabase'; return; }
+  listEl.textContent = '加载中...';
+  try {
+    const { data, error } = await supabaseClient
+      .from('suggestions')
+      .select('id, title, content, email, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    if (countEl) countEl.textContent = data ? data.length : 0;
+    if (!data || data.length === 0) {
+      listEl.innerHTML = '<div class="dup-empty">暂无建议</div>';
+      return;
+    }
+    listEl.innerHTML = data.map(function(s) {
+      const time = new Date(s.created_at).toLocaleString();
+      return '<div class="suggest-item"><div class="suggest-item-header">' +
+        '<span class="suggest-item-title">' + escapeHtml(s.title || '（无标题）') + '</span>' +
+        '<button class="icon-btn delete" title="删除建议" onclick="deleteSuggestion(\'' + s.id + '\')">&#x1F5D1;</button></div>' +
+        '<div class="suggest-item-content">' + escapeHtml(s.content) + '</div>' +
+        '<div class="suggest-item-meta"><span>' + escapeHtml(s.email || '匿名') + '</span><span>' + time + '</span></div></div>';
+    }).join('');
+  } catch (e) {
+    listEl.innerHTML = '<div style="color:#dc3545;font-size:13px;">加载失败：' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+async function deleteSuggestion(id) {
+  if (!requireAdmin()) return;
+  if (!id) return;
+  if (!confirm('确定删除这条建议？')) return;
+  try {
+    const { error } = await supabaseClient.from('suggestions').delete().eq('id', id);
+    if (error) throw error;
+    showToast('建议已删除');
+    loadSuggestions();
+  } catch (e) {
+    showToast('删除失败: ' + e.message);
+  }
+}
+
+// ==================== [MODIFIED] 修改点 9: 重写 saveData 函数，增加权限检查 ====================
+function saveData() {
+  saveToLocalStorage();
+  if (supabaseClient) {
+    if (isReadOnly) {
+      showToast('只读模式：数据仅保存到本地，未同步到云端');
+      return false;
+    }
+    saveToSupabase();
+  }
+  return true;
+}
+
+// ==================== [MODIFIED] 修改点 10: 重写 requireAdmin 函数，使用 Supabase 认证 ====================
+function requireAdmin() {
+  if (!supabaseClient) {
+    showToast('请先连接 Supabase');
+    return false;
+  }
+  if (isReadOnly) {
+    showToast('只读模式：您没有编辑权限，请联系管理员');
+    return false;
+  }
+  if (!currentUser) {
+    showToast('请先登录管理员账号');
+    openAuthModal();
+    return false;
+  }
+  return true;
+}
+
+async function saveToSupabase() {
+  if (!supabaseClient) return;
+  updateSyncStatus('syncing', '同步中...');
+  try {
+    const data = { categories: categories, tags: tags, savedAt: new Date().toISOString() };
+    const { error } = await supabaseClient
+      .from('sd_data')
+      .upsert({ id: 1, data: data, updated_at: new Date().toISOString() });
+
+    if (error) {
+      if (error.code === '42501') {
+        showToast('权限不足：您不是管理员，无法写入云端');
+        isReadOnly = true;
+        updateAdminVisibility();
+      } else {
+        showToast('同步失败: ' + error.message);
+      }
+      updateSyncStatus('error', '同步失败');
+    } else {
+      updateSyncStatus('synced', '已同步');
+    }
+  } catch (e) {
+    console.error('Supabase save error', e);
+    updateSyncStatus('error', '同步失败');
+  }
+}
+
+// ==================== [MODIFIED] 修改点 11: 重写 resetToDefault 函数 ====================
+function resetToDefault() {
+  if (!requireAdmin()) return;
+  if (!confirm('确定重置为默认数据？所有自定义的分类和标签将被清除。')) return;
+  categories = JSON.parse(JSON.stringify(DEFAULT_DATA.categories));
+  tags = JSON.parse(JSON.stringify(DEFAULT_DATA.tags));
+  selectedTags.clear();
+  activeCategoryId = categories[0] ? categories[0].id : '';
+  saveData();
+  renderAll(); updateStats(); showToast('已重置为默认数据');
+}
+
+// ==================== [MODIFIED] 修改点 12: 移除旧的 admin 解锁逻辑 ====================
+// 旧的 handleTitleClick, handleTitleLongPress, revealAdminTab 已删除
+
+// ==================== [MODIFIED] 修改点 13: 重写 switchTab 函数（新增建议反馈页，后台仅管理员） ====================
+function switchTab(tab) {
+  if (tab === 'admin' && !(supabaseClient && isAdmin)) {
+    showToast('仅管理员可访问后台管理');
+    tab = 'suggest';
+  }
+  if (tab === 'suggest' && !currentUser) {
+    showToast('请先登录后再提交建议');
+    tab = 'generator';
+  }
+
+  currentView = tab;
+  document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+  document.getElementById('generator-view').style.display = 'none';
+  document.getElementById('suggest-view').style.display = 'none';
+  document.getElementById('admin-view').style.display = 'none';
+  if (tab === 'generator') {
+    document.getElementById('generator-view').style.display = 'flex';
+    renderSidebar(); renderTags(); renderSelectedTags();
+  } else if (tab === 'suggest') {
+    document.getElementById('suggest-view').style.display = 'block';
+  } else {
+    document.getElementById('admin-view').style.display = 'block';
+    updateAdminVisibility();
+    renderAdmin(); updateStats(); loadSuggestions();
+  }
+}
+
+// ==================== 原有代码（数据结构和工具函数）====================
+const DEFAULT_DATA = {"categories": [{"id": "cat_quality", "name": "质量词", "color": "#3b82f6", "hidden": false}, {"id": "cat_medium", "name": "媒介/画风", "color": "#ef4444", "hidden": false}, {"id": "cat_subject", "name": "主体", "color": "#22c55e", "hidden": false}, {"id": "cat_style", "name": "艺术风格", "color": "#a855f7", "hidden": false}, {"id": "cat_lighting", "name": "光照", "color": "#f59e0b", "hidden": false}, {"id": "cat_color", "name": "色彩", "color": "#ec4899", "hidden": false}, {"id": "cat_camera", "name": "相机/技术", "color": "#06b6d4", "hidden": false}, {"id": "cat_artist", "name": "艺术家/网站", "color": "#f97316", "hidden": false}, {"id": "cat_detail", "name": "细节增强", "color": "#84cc16", "hidden": false}, {"id": "cat_negative", "name": "负面提示词", "color": "#6366f1", "hidden": false}], "tags": [{"id": "t1", "catId": "cat_quality", "name": "masterpiece", "cn": "杰作", "weight": 1.0}, {"id": "t2", "catId": "cat_quality", "name": "best quality", "cn": "最佳质量", "weight": 1.0}, {"id": "t3", "catId": "cat_quality", "name": "ultra-detailed", "cn": "超精细", "weight": 1.0}, {"id": "t4", "catId": "cat_quality", "name": "high resolution", "cn": "高分辨率", "weight": 1.0}, {"id": "t5", "catId": "cat_quality", "name": "8k uhd", "cn": "8K超高清", "weight": 1.0}, {"id": "t6", "catId": "cat_quality", "name": "RAW photo", "cn": "RAW照片", "weight": 1.0}, {"id": "t7", "catId": "cat_quality", "name": "sharp focus", "cn": "锐焦", "weight": 1.0}, {"id": "t8", "catId": "cat_quality", "name": "highly detailed", "cn": "高度详细", "weight": 1.0}, {"id": "t9", "catId": "cat_quality", "name": "professional", "cn": "专业级", "weight": 1.0}, {"id": "t10", "catId": "cat_quality", "name": "trending on artstation", "cn": "ArtStation热门", "weight": 1.0}, {"id": "t20", "catId": "cat_medium", "name": "digital art", "cn": "数字艺术", "weight": 1.0}, {"id": "t21", "catId": "cat_medium", "name": "oil painting", "cn": "油画", "weight": 1.0}, {"id": "t22", "catId": "cat_medium", "name": "watercolor", "cn": "水彩", "weight": 1.0}, {"id": "t23", "catId": "cat_medium", "name": "illustration", "cn": "插画", "weight": 1.0}, {"id": "t24", "catId": "cat_medium", "name": "photography", "cn": "摄影", "weight": 1.0}, {"id": "t25", "catId": "cat_medium", "name": "3D render", "cn": "3D渲染", "weight": 1.0}, {"id": "t26", "catId": "cat_medium", "name": "concept art", "cn": "概念艺术", "weight": 1.0}, {"id": "t27", "catId": "cat_medium", "name": "sketch", "cn": "素描", "weight": 1.0}, {"id": "t28", "catId": "cat_medium", "name": "anime", "cn": "动漫", "weight": 1.0}, {"id": "t29", "catId": "cat_medium", "name": "pixel art", "cn": "像素艺术", "weight": 1.0}, {"id": "t40", "catId": "cat_subject", "name": "1girl", "cn": "1个女孩", "weight": 1.0}, {"id": "t41", "catId": "cat_subject", "name": "1boy", "cn": "1个男孩", "weight": 1.0}, {"id": "t42", "catId": "cat_subject", "name": "portrait", "cn": "肖像", "weight": 1.0}, {"id": "t43", "catId": "cat_subject", "name": "full body", "cn": "全身", "weight": 1.0}, {"id": "t44", "catId": "cat_subject", "name": "close-up", "cn": "特写", "weight": 1.0}, {"id": "t45", "catId": "cat_subject", "name": "landscape", "cn": "风景", "weight": 1.0}, {"id": "t46", "catId": "cat_subject", "name": "cityscape", "cn": "城市景观", "weight": 1.0}, {"id": "t47", "catId": "cat_subject", "name": "character", "cn": "角色", "weight": 1.0}, {"id": "t48", "catId": "cat_subject", "name": "creature", "cn": "生物", "weight": 1.0}, {"id": "t49", "catId": "cat_subject", "name": "architecture", "cn": "建筑", "weight": 1.0}, {"id": "t60", "catId": "cat_style", "name": "hyperrealistic", "cn": "超写实", "weight": 1.0}, {"id": "t61", "catId": "cat_style", "name": "fantasy", "cn": "奇幻", "weight": 1.0}, {"id": "t62", "catId": "cat_style", "name": "cyberpunk", "cn": "赛博朋克", "weight": 1.0}, {"id": "t63", "catId": "cat_style", "name": "steampunk", "cn": "蒸汽朋克", "weight": 1.0}, {"id": "t64", "catId": "cat_style", "name": "surrealism", "cn": "超现实主义", "weight": 1.0}, {"id": "t65", "catId": "cat_style", "name": "impressionism", "cn": "印象派", "weight": 1.0}, {"id": "t66", "catId": "cat_style", "name": "art deco", "cn": "装饰艺术", "weight": 1.0}, {"id": "t67", "catId": "cat_style", "name": "minimalist", "cn": "极简主义", "weight": 1.0}, {"id": "t68", "catId": "cat_style", "name": "gothic", "cn": "哥特式", "weight": 1.0}, {"id": "t69", "catId": "cat_style", "name": "vaporwave", "cn": "蒸汽波", "weight": 1.0}, {"id": "t80", "catId": "cat_lighting", "name": "soft lighting", "cn": "柔和光照", "weight": 1.0}, {"id": "t81", "catId": "cat_lighting", "name": "dramatic lighting", "cn": "戏剧性光照", "weight": 1.0}, {"id": "t82", "catId": "cat_lighting", "name": "volumetric lighting", "cn": "体积光", "weight": 1.0}, {"id": "t83", "catId": "cat_lighting", "name": "cinematic lighting", "cn": "电影级光照", "weight": 1.0}, {"id": "t84", "catId": "cat_lighting", "name": "golden hour", "cn": "黄金时刻", "weight": 1.0}, {"id": "t85", "catId": "cat_lighting", "name": "neon lights", "cn": "霓虹灯光", "weight": 1.0}, {"id": "t86", "catId": "cat_lighting", "name": "Rembrandt lighting", "cn": "伦勃朗光", "weight": 1.0}, {"id": "t87", "catId": "cat_lighting", "name": "rim lighting", "cn": "轮廓光", "weight": 1.0}, {"id": "t88", "catId": "cat_lighting", "name": "backlight", "cn": "逆光", "weight": 1.0}, {"id": "t89", "catId": "cat_lighting", "name": "studio lighting", "cn": "影棚光", "weight": 1.0}, {"id": "t100", "catId": "cat_color", "name": "vibrant colors", "cn": "鲜艳色彩", "weight": 1.0}, {"id": "t101", "catId": "cat_color", "name": "pastel colors", "cn": "柔和色彩", "weight": 1.0}, {"id": "t102", "catId": "cat_color", "name": "monochrome", "cn": "单色", "weight": 1.0}, {"id": "t103", "catId": "cat_color", "name": "iridescent", "cn": "彩虹色", "weight": 1.0}, {"id": "t104", "catId": "cat_color", "name": "warm tones", "cn": "暖色调", "weight": 1.0}, {"id": "t105", "catId": "cat_color", "name": "cool tones", "cn": "冷色调", "weight": 1.0}, {"id": "t106", "catId": "cat_color", "name": "high contrast", "cn": "高对比度", "weight": 1.0}, {"id": "t107", "catId": "cat_color", "name": "low saturation", "cn": "低饱和度", "weight": 1.0}, {"id": "t108", "catId": "cat_color", "name": "sepia", "cn": "sepia色调", "weight": 1.0}, {"id": "t109", "catId": "cat_color", "name": "duotone", "cn": "双色调", "weight": 1.0}, {"id": "t120", "catId": "cat_camera", "name": "85mm lens", "cn": "85mm镜头", "weight": 1.0}, {"id": "t121", "catId": "cat_camera", "name": "bokeh", "cn": "散景", "weight": 1.0}, {"id": "t122", "catId": "cat_camera", "name": "shallow depth of field", "cn": "浅景深", "weight": 1.0}, {"id": "t123", "catId": "cat_camera", "name": "film grain", "cn": "胶片颗粒", "weight": 1.0}, {"id": "t124", "catId": "cat_camera", "name": "35mm photograph", "cn": "35mm照片", "weight": 1.0}, {"id": "t125", "catId": "cat_camera", "name": "DSLR", "cn": "单反相机", "weight": 1.0}, {"id": "t126", "catId": "cat_camera", "name": "macro shot", "cn": "微距拍摄", "weight": 1.0}, {"id": "t127", "catId": "cat_camera", "name": "wide angle", "cn": "广角", "weight": 1.0}, {"id": "t128", "catId": "cat_camera", "name": "long exposure", "cn": "长曝光", "weight": 1.0}, {"id": "t129", "catId": "cat_camera", "name": "tilt-shift", "cn": "移轴", "weight": 1.0}, {"id": "t140", "catId": "cat_artist", "name": "artstation", "cn": "ArtStation", "weight": 1.0}, {"id": "t141", "catId": "cat_artist", "name": "deviantart", "cn": "DeviantArt", "weight": 1.0}, {"id": "t142", "catId": "cat_artist", "name": "pixiv", "cn": "Pixiv", "weight": 1.0}, {"id": "t143", "catId": "cat_artist", "name": "by Greg Rutkowski", "cn": "Greg Rutkowski", "weight": 1.0}, {"id": "t144", "catId": "cat_artist", "name": "by Alphonse Mucha", "cn": "Alphonse Mucha", "weight": 1.0}, {"id": "t145", "catId": "cat_artist", "name": "by Hayao Miyazaki", "cn": "宫崎骏", "weight": 1.0}, {"id": "t146", "catId": "cat_artist", "name": "by Studio Ghibli", "cn": "吉卜力", "weight": 1.0}, {"id": "t147", "catId": "cat_artist", "name": "by Jeremy Mann", "cn": "Jeremy Mann", "weight": 1.0}, {"id": "t148", "catId": "cat_artist", "name": "by WLOP", "cn": "WLOP", "weight": 1.0}, {"id": "t149", "catId": "cat_artist", "name": "by Makoto Shinkai", "cn": "新海诚", "weight": 1.0}, {"id": "t160", "catId": "cat_detail", "name": "intricate details", "cn": "复杂细节", "weight": 1.0}, {"id": "t161", "catId": "cat_detail", "name": "ornate", "cn": "华丽装饰", "weight": 1.0}, {"id": "t162", "catId": "cat_detail", "name": "elegant", "cn": "优雅", "weight": 1.0}, {"id": "t163", "catId": "cat_detail", "name": "atmospheric", "cn": "氛围感", "weight": 1.0}, {"id": "t164", "catId": "cat_detail", "name": "moody", "cn": "情绪化", "weight": 1.0}, {"id": "t165", "catId": "cat_detail", "name": "epic", "cn": "史诗感", "weight": 1.0}, {"id": "t166", "catId": "cat_detail", "name": "cinematic composition", "cn": "电影构图", "weight": 1.0}, {"id": "t167", "catId": "cat_detail", "name": "dynamic pose", "cn": "动态姿势", "weight": 1.0}, {"id": "t168", "catId": "cat_detail", "name": "flowing hair", "cn": "飘逸头发", "weight": 1.0}, {"id": "t169", "catId": "cat_detail", "name": "detailed background", "cn": "详细背景", "weight": 1.0}, {"id": "t180", "catId": "cat_negative", "name": "lowres", "cn": "低分辨率", "weight": 1.0}, {"id": "t181", "catId": "cat_negative", "name": "bad anatomy", "cn": "解剖错误", "weight": 1.0}, {"id": "t182", "catId": "cat_negative", "name": "bad hands", "cn": "手部错误", "weight": 1.0}, {"id": "t183", "catId": "cat_negative", "name": "text", "cn": "文字", "weight": 1.0}, {"id": "t184", "catId": "cat_negative", "name": "error", "cn": "错误", "weight": 1.0}, {"id": "t185", "catId": "cat_negative", "name": "missing fingers", "cn": "缺失手指", "weight": 1.0}, {"id": "t186", "catId": "cat_negative", "name": "extra digit", "cn": "多余手指", "weight": 1.0}, {"id": "t187", "catId": "cat_negative", "name": "worst quality", "cn": "最差质量", "weight": 1.0}, {"id": "t188", "catId": "cat_negative", "name": "blurry", "cn": "模糊", "weight": 1.0}, {"id": "t189", "catId": "cat_negative", "name": "deformed", "cn": "变形", "weight": 1.0}, {"id": "t190", "catId": "cat_negative", "name": "ugly", "cn": "丑陋", "weight": 1.0}, {"id": "t191", "catId": "cat_negative", "name": "duplicate", "cn": "重复", "weight": 1.0}, {"id": "t192", "catId": "cat_negative", "name": "watermark", "cn": "水印", "weight": 1.0}, {"id": "t193", "catId": "cat_negative", "name": "signature", "cn": "签名", "weight": 1.0}]};
+
+const COLORS = [
+  '#3b82f6', '#ef4444', '#22c55e', '#a855f7', '#f59e0b',
+  '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#6366f1',
+  '#8b5cf6', '#14b8a6', '#f43f5e', '#d946ef', '#0ea5e9',
+  '#eab308', '#f97316', '#10b981', '#64748b', '#b91c1c',
+  '#1d4ed8', '#047857', '#7c3aed', '#c2410c', '#be185d'
+];
+let selectedColor = COLORS[0];
+
+let categories = [], tags = [], selectedTags = new Map();
+let activeCategoryId = '', currentView = 'generator';
+let duplicateCache = null, showHiddenCategories = false;
+let globalSearchQuery = '', sidebarSearchQuery = '';
+
+const DATA_STORAGE_KEY = 'sd_prompt_data';
+const DATA_VERSION = 2;
+
+function loadData() {
+  try {
+    const saved = localStorage.getItem(DATA_STORAGE_KEY);
+    if (saved) {
+      const data = JSON.parse(saved);
+      if (data.categories && Array.isArray(data.categories) && data.categories.length > 0) {
+        categories = data.categories;
+        tags = data.tags || [];
+        categories.forEach(function(c) { if (typeof c.hidden === 'undefined') c.hidden = false; });
+        activeCategoryId = categories[0] ? categories[0].id : '';
+        return;
+      }
+    }
+  } catch (e) { console.error('load from localStorage failed', e); }
+  categories = JSON.parse(JSON.stringify(DEFAULT_DATA.categories));
+  tags = JSON.parse(JSON.stringify(DEFAULT_DATA.tags));
+  activeCategoryId = categories[0] ? categories[0].id : '';
+  saveToLocalStorage();
+}
+
+function saveToLocalStorage() {
+  try {
+    const data = { version: DATA_VERSION, categories: categories, tags: tags, savedAt: new Date().toISOString() };
+    localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error('save to localStorage failed', e);
+    showToast('本地保存失败，可能是存储空间不足');
+  }
+}
+
+function exportData() {
+  const exportCategories = categories.map(function(c) {
+    return { id: c.id, name: c.name, color: c.color, hidden: !!c.hidden };
+  });
+  const data = { version: DATA_VERSION, categories: exportCategories, tags: tags, exportTime: new Date().toISOString() };
+  const json = JSON.stringify(data, null, 2);
+  const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
+  const a = document.createElement('a');
+  a.href = dataUri;
+  a.download = 'sd-prompt-data-' + Date.now() + '.json';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  try { a.click(); showToast('数据已导出'); }
+  catch (e) { window.open(dataUri, '_blank'); showToast('数据已导出（新窗口打开）'); }
+  setTimeout(function() { if (a.parentNode) document.body.removeChild(a); }, 100);
+}
+
+function importData(input) {
+  if (!requireAdmin()) return;
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.categories || !Array.isArray(data.categories)) { showToast('文件格式错误'); return; }
+      categories = data.categories; tags = data.tags || [];
+      categories.forEach(function(c) { if (typeof c.hidden === 'undefined') c.hidden = false; });
+      selectedTags.clear();
+      activeCategoryId = getVisibleCategories()[0] ? getVisibleCategories()[0].id : (categories[0] ? categories[0].id : '');
+      saveData(); renderAll(); updateStats();
+      showToast('成功导入 ' + categories.length + ' 个分类，' + tags.length + ' 个标签');
+    } catch (err) { showToast('导入失败：' + err.message); }
+  };
+  reader.readAsText(file); input.value = '';
+}
+
+function init() {
+  loadData(); renderColorPicker(); renderAll(); updateStats(); updateHiddenToggleVisibility();
+  autoLoadEnvConfig();
+}
+function renderAll() { renderSidebar(); renderTags(); renderSelectedTags(); updatePrompt(); renderAdmin(); }
+
+function updateStats() {
+  document.getElementById('stat-cats').textContent = categories.length;
+  document.getElementById('stat-tags').textContent = tags.length;
+  const dups = findDuplicates();
+  document.getElementById('stat-dups').textContent = dups.totalDupCount;
+}
+
+function findDuplicates() {
+  const nameMap = new Map(), dupGroups = [];
+  let totalDupCount = 0;
+  tags.forEach(function(tag) {
+    const key = normalizeTagName(tag.name);
+    if (!nameMap.has(key)) nameMap.set(key, []);
+    nameMap.get(key).push(tag);
+  });
+  nameMap.forEach(function(group, key) {
+    if (group.length > 1) { dupGroups.push({ key: key, tags: group, count: group.length }); totalDupCount += group.length; }
+  });
+  return { dupGroups: dupGroups, totalDupCount: totalDupCount };
+}
+function normalizeTagName(name) { return name.toLowerCase().trim().replace(/\s+/g, ' '); }
+
+function runDuplicateCheck() {
+  if (!requireAdmin()) return;
+  const result = findDuplicates();
+  duplicateCache = result;
+  const container = document.getElementById('dup-results');
+  if (result.dupGroups.length === 0) { container.innerHTML = '<div class="dup-empty">未发现重复标签，数据很干净！</div>'; updateStats(); return; }
+  let html = '<div class="dup-panel"><div class="dup-panel-title">发现 ' + result.dupGroups.length + ' 组重复，共 ' + result.totalDupCount + ' 个标签</div>';
+  result.dupGroups.forEach(function(group) {
+    html += '<div class="dup-group"><div class="dup-group-header">"' + group.key + '" — ' + group.count + ' 个重复</div>';
+    group.tags.forEach(function(tag) {
+      const cat = categories.find(function(c) { return c.id === tag.catId; });
+      html += '<div class="dup-item"><span>' + tag.name + (tag.cn ? ' (' + tag.cn + ')' : '') + '</span><span class="dup-cat" style="background:' + (cat ? cat.color + '20' : '#eee') + ';color:' + (cat ? cat.color : '#666') + '">' + (cat ? cat.name : '未分类') + '</span></div>';
+    });
+    html += '</div>';
+  });
+  html += '</div>'; container.innerHTML = html; updateStats();
+}
+
+function mergeDuplicates() {
+  if (!requireAdmin()) return;
+  const result = findDuplicates();
+  if (result.dupGroups.length === 0) { showToast('没有重复标签需要合并'); return; }
+  let merged = 0;
+  result.dupGroups.forEach(function(group) {
+    const removeIds = group.tags.slice(1).map(function(t) { return t.id; });
+    removeIds.forEach(function(id) { if (selectedTags.has(id)) selectedTags.delete(id); });
+    tags = tags.filter(function(t) { return !removeIds.includes(t.id); });
+    merged += removeIds.length;
+  });
+  saveData(); renderAll(); updateStats();
+  document.getElementById('dup-results').innerHTML = '<div class="dup-empty">重复标签已自动合并</div>';
+  showToast('已合并 ' + merged + ' 个重复标签');
+}
+
+function getVisibleCategories() {
+  if (showHiddenCategories) return categories;
+  return categories.filter(function(c) { return !c.hidden; });
+}
+function hasHiddenCategories() { return categories.some(function(c) { return c.hidden; }); }
+
+function updateHiddenToggleVisibility() {
+  const wrapper = document.getElementById('show-hidden-toggle-wrapper');
+  if (hasHiddenCategories()) { wrapper.style.display = 'flex'; }
+  else { wrapper.style.display = 'none'; showHiddenCategories = false; document.getElementById('show-hidden-toggle').classList.remove('on'); }
+}
+
+function toggleShowHidden() {
+  showHiddenCategories = !showHiddenCategories;
+  document.getElementById('show-hidden-toggle').classList.toggle('on', showHiddenCategories);
+  const visible = getVisibleCategories();
+  const currentCat = categories.find(function(c) { return c.id === activeCategoryId; });
+  if (currentCat && currentCat.hidden && !showHiddenCategories) activeCategoryId = visible[0] ? visible[0].id : '';
+  renderSidebar(); renderTags();
+}
+
+function renderSidebar() {
+  const container = document.getElementById('category-list-container');
+  let visibleCats = getVisibleCategories();
+  const query = sidebarSearchQuery;
+  if (query) {
+    visibleCats = visibleCats.filter(function(cat) {
+      return cat.name.toLowerCase().includes(query);
+    });
+  }
+  if (visibleCats.length === 0) { 
+    container.innerHTML = '<div class="empty-state">' + (query ? '未找到匹配的分类' : '暂无分类') + '</div>'; 
+    return; 
+  }
+  container.innerHTML = visibleCats.map(function(cat) {
+    const count = tags.filter(function(t) { return t.catId === cat.id; }).length;
+    const isHidden = cat.hidden;
+    let nameHtml = cat.name;
+    if (query) {
+      const idx = cat.name.toLowerCase().indexOf(query);
+      if (idx >= 0) {
+        nameHtml = cat.name.substring(0, idx) + '<mark style="background:#f59e0b33;color:#1a1a1a;border-radius:2px;padding:0 2px;">' + cat.name.substring(idx, idx + query.length) + '</mark>' + cat.name.substring(idx + query.length);
+      }
+    }
+    return '<div class="category-item ' + (cat.id === activeCategoryId ? 'active' : '') + ' ' + (isHidden ? 'hidden-cat' : '') + '" onclick="selectCategory(\'' + cat.id + '\')"><span>' + nameHtml + (isHidden ? '<span class="hidden-badge">隐</span>' : '') + '</span><span class="category-count">' + count + '</span></div>';
+  }).join('');
+}
+
+function renderTags() {
+  const area = document.getElementById('tag-area');
+  if (globalSearchQuery.trim()) { renderSearchResults(area); return; }
+  const cat = categories.find(function(c) { return c.id === activeCategoryId; });
+  if (!cat) { area.innerHTML = '<div class="empty-state">请选择一个分类</div>'; return; }
+  const catTags = tags.filter(function(t) { return t.catId === activeCategoryId; });
+  let html = '<div class="tag-section-title"><span class="color-dot" style="background:' + cat.color + '"></span>' + cat.name + '<span style="font-size:13px;font-weight:400;color:#999;">(' + catTags.length + ' 个标签)</span></div>';
+  html += '<div class="tags-grid">';
+  catTags.forEach(function(tag) {
+    const isSelected = selectedTags.has(tag.id);
+    const weight = selectedTags.get(tag.id) || 1.0;
+    const displayName = tag.cn ? tag.name + ' (' + tag.cn + ')' : tag.name;
+    html += '<div class="tag-chip ' + (isSelected ? 'selected' : '') + '" data-tag-id="' + tag.id + '" onclick="toggleTag(\'' + tag.id + '\')" oncontextmenu="handleTagContextMenu(event, this);return false;">' + displayName + (isSelected ? '<span class="weight-badge">' + weight.toFixed(1) + '</span>' : '') + '</div>';
+  });
+  html += '</div>'; area.innerHTML = html;
+}
+
+function renderSearchResults(area) {
+  const query = globalSearchQuery.toLowerCase().trim();
+  if (!query) { renderTags(); return; }
+  const results = tags.filter(function(t) {
+    return t.name.toLowerCase().includes(query) || (t.cn && t.cn.toLowerCase().includes(query));
+  });
+  if (results.length === 0) { area.innerHTML = '<div class="empty-state">未找到包含 "' + escapeHtml(globalSearchQuery) + '" 的标签</div>'; return; }
+  const grouped = {};
+  results.forEach(function(tag) {
+    const cat = categories.find(function(c) { return c.id === tag.catId; });
+    const catName = cat ? cat.name : '未分类';
+    const catColor = cat ? cat.color : '#999';
+    const catId = cat ? cat.id : 'unknown';
+    if (!grouped[catId]) grouped[catId] = { catName: catName, catColor: catColor, tags: [] };
+    grouped[catId].tags.push(tag);
+  });
+  let html = '<div class="search-results-title">搜索 "' + escapeHtml(globalSearchQuery) + '" — 找到 ' + results.length + ' 个结果</div>';
+  Object.entries(grouped).forEach(function(entry) {
+    const catId = entry[0], group = entry[1];
+    html += '<div class="search-result-group">';
+    html += '<div class="search-result-group-header"><span class="color-dot" style="background:' + group.catColor + '"></span><span class="cat-name">' + group.catName + '</span><span class="cat-count">' + group.tags.length + ' 个</span></div>';
+    html += '<div class="tags-grid">';
+    group.tags.forEach(function(tag) {
+      const isSelected = selectedTags.has(tag.id);
+      const weight = selectedTags.get(tag.id) || 1.0;
+      const displayName = tag.cn ? tag.name + ' (' + tag.cn + ')' : tag.name;
+      html += '<div class="tag-chip ' + (isSelected ? 'selected' : '') + '" data-tag-id="' + tag.id + '" onclick="toggleTag(\'' + tag.id + '\')" oncontextmenu="handleTagContextMenu(event, this);return false;" title="分类: ' + group.catName + '">' + displayName + (isSelected ? '<span class="weight-badge">' + weight.toFixed(1) + '</span>' : '') + '</div>';
+    });
+    html += '</div></div>';
+  });
+  area.innerHTML = html;
+}
+
+function handleTagContextMenu(event, element) {
+  event.preventDefault();
+  const tagId = element.getAttribute('data-tag-id');
+  if (!tagId) return;
+  adjustWeight(event, tagId);
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function onGlobalSearch(value) {
+  globalSearchQuery = value;
+  sidebarSearchQuery = value.toLowerCase().trim();
+  renderSidebar();
+  renderTags();
+}
+
+function clearGlobalSearch() {
+  document.getElementById('global-search').value = '';
+  globalSearchQuery = '';
+  sidebarSearchQuery = '';
+  renderSidebar();
+  renderTags();
+}
+
+function renderSelectedTags() {
+  const container = document.getElementById('selected-tags-list');
+  if (selectedTags.size === 0) { container.innerHTML = '<span style="color:#ccc;font-size:13px;">未选择任何标签</span>'; return; }
+  container.innerHTML = Array.from(selectedTags.entries()).map(function(entry) {
+    const tagId = entry[0], weight = entry[1];
+    const tag = tags.find(function(t) { return t.id === tagId; });
+    if (!tag) return '';
+    const display = tag.cn ? tag.name + ' (' + tag.cn + ')' : tag.name;
+    return '<div class="selected-tag-item" onclick="toggleTag(\'' + tag.id + '\')" title="点击移除">' + display + (weight !== 1.0 ? '<span style="font-family:monospace;">:' + weight.toFixed(1) + '</span>' : '') + '<span style="font-size:10px;opacity:0.6;">&#x2715;</span></div>';
+  }).join('');
+}
+
+function renderColorPicker() {
+  const picker = document.getElementById('color-picker');
+  picker.innerHTML = COLORS.map(function(c) {
+    return '<div class="color-option ' + (c === selectedColor ? 'selected' : '') + '" style="background:' + c + '" onclick="selectColor(\'' + c + '\')"></div>';
+  }).join('');
+}
+
+function renderAdmin() {
+  const catList = document.getElementById('category-list');
+  catList.innerHTML = categories.map(function(cat) {
+    const count = tags.filter(function(t) { return t.catId === cat.id; }).length;
+    const hiddenText = cat.hidden ? ' <span style="font-size:11px;color:#f59e0b;">[已隐藏]</span>' : '';
+    return '<div class="category-card"><div class="category-card-info"><div class="category-color" style="background:' + cat.color + '" onclick="changeCategoryColor(\'' + cat.id + '\')" title="点击修改颜色"></div><div><div class="category-card-name">' + cat.name + hiddenText + '</div><div class="category-card-count">' + count + ' 个标签</div></div></div><div class="category-card-actions"><button class="icon-btn" data-crud onclick="toggleCategoryHidden(\'' + cat.id + '\')" title="' + (cat.hidden ? '显示' : '隐藏') + '分类">' + (cat.hidden ? '&#x1F441;' : '&#x1F648;') + '</button><button class="icon-btn" data-crud onclick="editCategory(\'' + cat.id + '\')" title="编辑">&#x270F;</button><button class="icon-btn delete" data-crud onclick="deleteCategory(\'' + cat.id + '\')" title="删除">&#x1F5D1;</button></div></div>';
+  }).join('');
+
+  const select = document.getElementById('batch-cat-select');
+  select.innerHTML = categories.map(function(cat) { return '<option value="' + cat.id + '">' + cat.name + '</option>'; }).join('');
+
+  const mergeSource = document.getElementById('merge-source-select');
+  const mergeTarget = document.getElementById('merge-target-select');
+  if (mergeSource && mergeTarget) {
+    const options = categories.map(function(cat) { return '<option value="' + cat.id + '">' + cat.name + '</option>'; }).join('');
+    mergeSource.innerHTML = options; mergeTarget.innerHTML = options;
+  }
+
+  const tagFilterCat = document.getElementById('tag-filter-cat');
+  if (tagFilterCat) {
+    const currentFilter = tagFilterCat.value;
+    let filterHtml = '<option value="">全部分类</option>';
+    categories.forEach(function(cat) {
+      filterHtml += '<option value="' + cat.id + '">' + cat.name + '</option>';
+    });
+    tagFilterCat.innerHTML = filterHtml;
+    tagFilterCat.value = currentFilter;
+  }
+
+  renderTagTable();
+}
+
+function renderTagTable() {
+  const tbody = document.getElementById('tag-table-body');
+  const searchEl = document.getElementById('tag-search');
+  const search = searchEl ? (searchEl.value || '').toLowerCase() : '';
+  const catFilterEl = document.getElementById('tag-filter-cat');
+  const catFilter = catFilterEl ? catFilterEl.value : '';
+
+  let filtered = tags;
+  if (search) filtered = filtered.filter(function(t) { return t.name.toLowerCase().includes(search) || (t.cn && t.cn.toLowerCase().includes(search)); });
+  if (catFilter) filtered = filtered.filter(function(t) { return t.catId === catFilter; });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;padding:40px 20px;">' + (search ? '未找到包含 "' + escapeHtml(searchEl.value) + '" 的标签' : '该分类下暂无标签') + '</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(function(tag) {
+    const cat = categories.find(function(c) { return c.id === tag.catId; });
+    return '<tr><td class="tag-name-cell">' + tag.name + (tag.cn ? ' <span style="color:#999;font-size:12px;">(' + tag.cn + ')</span>' : '') + '</td><td class="tag-cat-cell">' + (cat ? cat.name : '未分类') + '</td><td><div class="weight-slider"><input type="range" min="0.1" max="2.0" step="0.1" value="' + tag.weight + '" onchange="updateTagWeight(\'' + tag.id + '\', this.value)" data-crud><span class="weight-value">' + tag.weight.toFixed(1) + '</span></div></td><td><button class="icon-btn delete" data-crud onclick="deleteTag(\'' + tag.id + '\')" title="删除">&#x1F5D1;</button></td></tr>';
+  }).join('');
+}
+
+function selectCategory(catId) {
+  activeCategoryId = catId;
+  globalSearchQuery = '';
+  document.getElementById('global-search').value = '';
+  renderSidebar(); renderTags();
+}
+
+function toggleTag(tagId) {
+  if (selectedTags.has(tagId)) { selectedTags.delete(tagId); }
+  else { const tag = tags.find(function(t) { return t.id === tagId; }); selectedTags.set(tagId, tag ? tag.weight : 1.0); }
+  renderTags(); renderSelectedTags(); updatePrompt();
+}
+
+function adjustWeight(event, tagId) {
+  event.preventDefault();
+  if (!selectedTags.has(tagId)) return;
+  let w = selectedTags.get(tagId);
+  if (event.shiftKey) {
+    w = Math.max(0.1, w - 0.1);
+  } else {
+    w = Math.min(2.0, w + 0.1);
+  }
+  selectedTags.set(tagId, w);
+  renderTags(); renderSelectedTags(); updatePrompt();
+}
+
+function addWeightToAll(delta) {
+  selectedTags.forEach(function(w, id) {
+    let newW = Math.max(0.1, Math.min(2.0, w + delta));
+    selectedTags.set(id, newW);
+    const tag = tags.find(function(t) { return t.id === id; });
+    if (tag) tag.weight = newW;
+  });
+  saveData(); renderTags(); renderSelectedTags(); updatePrompt();
+}
+
+function updatePrompt() {
+  const parts = [];
+  selectedTags.forEach(function(weight, tagId) {
+    const tag = tags.find(function(t) { return t.id === tagId; });
+    if (!tag) return;
+    if (weight === 1.0) parts.push(tag.name);
+    else parts.push('(' + tag.name + ':' + weight.toFixed(1) + ')');
+  });
+  document.getElementById('prompt-text').value = parts.join(', ');
+}
+
+function clearAll() {
+  selectedTags.clear(); renderTags(); renderSelectedTags(); updatePrompt();
+  showToast('已清空所有标签');
+}
+
+async function copyPrompt() {
+  const text = document.getElementById('prompt-text').value;
+  if (!text) { showToast('提示词为空'); return; }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      showToast('已复制到剪贴板');
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta); showToast('已复制到剪贴板');
+    }
+  } catch(e) { showToast('复制失败，请手动复制'); }
+}
+
+function selectColor(color) { selectedColor = color; renderColorPicker(); }
+
+function addCategory() {
+  if (!requireAdmin()) return;
+  const name = document.getElementById('new-cat-name').value.trim();
+  if (!name) { showToast('请输入分类名称'); return; }
+  const id = 'cat_' + Date.now();
+  categories.push({ id: id, name: name, color: selectedColor, hidden: false });
+  document.getElementById('new-cat-name').value = '';
+  saveData(); renderAdmin(); updateStats(); updateHiddenToggleVisibility();
+  showToast('分类「' + name + '」已添加');
+}
+
+function deleteCategory(catId) {
+  if (!requireAdmin()) return;
+  if (!confirm('确定删除此分类？该分类下的所有标签也将被删除。')) return;
+  categories = categories.filter(function(c) { return c.id !== catId; });
+  tags = tags.filter(function(t) { return t.catId !== catId; });
+  selectedTags.forEach(function(_, id) { if (!tags.find(function(t) { return t.id === id; })) selectedTags.delete(id); });
+  if (activeCategoryId === catId) activeCategoryId = categories[0] ? categories[0].id : '';
+  saveData(); renderAll(); updateStats(); updateHiddenToggleVisibility();
+  showToast('分类已删除');
+}
+
+function editCategory(catId) {
+  if (!requireAdmin()) return;
+  const cat = categories.find(function(c) { return c.id === catId; });
+  if (!cat) return;
+  const newName = prompt('修改分类名称：', cat.name);
+  if (newName && newName.trim()) { cat.name = newName.trim(); saveData(); renderAdmin(); renderSidebar(); showToast('分类已更新'); }
+}
+
+function changeCategoryColor(catId) {
+  if (!requireAdmin()) return;
+  const cat = categories.find(function(c) { return c.id === catId; });
+  if (!cat) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'color-modal';
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeColorModal();
+  });
+  let colorHtml = '';
+  COLORS.forEach(function(c) {
+    colorHtml += '<div class="color-option ' + (c === cat.color ? 'selected' : '') + '" style="background:' + c + ';width:32px;height:32px;" data-color="' + c + '"></div>';
+  });
+  overlay.innerHTML = '<div class="modal-content"><div class="modal-title">修改「' + cat.name + '」的颜色</div><div class="modal-body"><div class="color-picker-row" style="gap:8px;">' + colorHtml + '</div></div><div class="modal-footer"><button class="btn" id="color-modal-cancel">取消</button></div></div>';
+  document.body.appendChild(overlay);
+  overlay.querySelectorAll('.color-option').forEach(function(el) {
+    el.addEventListener('click', function() {
+      applyCategoryColor(catId, el.getAttribute('data-color'));
+    });
+  });
+  const cancelBtn = document.getElementById('color-modal-cancel');
+  if (cancelBtn) cancelBtn.addEventListener('click', closeColorModal);
+}
+
+function applyCategoryColor(catId, color) {
+  if (!requireAdmin()) return;
+  const cat = categories.find(function(c) { return c.id === catId; });
+  if (cat) { cat.color = color; saveData(); renderAll(); closeColorModal(); showToast('颜色已更新'); }
+}
+function closeColorModal() { const modal = document.getElementById('color-modal'); if (modal) modal.remove(); }
+
+function toggleCategoryHidden(catId) {
+  if (!requireAdmin()) return;
+  const cat = categories.find(function(c) { return c.id === catId; });
+  if (!cat) return;
+  cat.hidden = !cat.hidden;
+  saveData(); renderAdmin(); renderSidebar(); updateHiddenToggleVisibility();
+  showToast(cat.hidden ? '分类已隐藏' : '分类已显示');
+}
+
+function mergeCategories() {
+  if (!requireAdmin()) return;
+  const sourceId = document.getElementById('merge-source-select').value;
+  const targetId = document.getElementById('merge-target-select').value;
+  if (!sourceId || !targetId) { showToast('请选择源分类和目标分类'); return; }
+  if (sourceId === targetId) { showToast('源分类和目标分类不能相同'); return; }
+  const sourceCat = categories.find(function(c) { return c.id === sourceId; });
+  const targetCat = categories.find(function(c) { return c.id === targetId; });
+  if (!sourceCat || !targetCat) { showToast('分类不存在'); return; }
+  const movedCount = tags.filter(function(t) { return t.catId === sourceId; }).length;
+  if (!confirm('确定将「' + sourceCat.name + '」的 ' + movedCount + ' 个标签合并到「' + targetCat.name + '」？\n源分类将被删除。')) return;
+  tags.forEach(function(t) { if (t.catId === sourceId) t.catId = targetId; });
+  categories = categories.filter(function(c) { return c.id !== sourceId; });
+  if (activeCategoryId === sourceId) activeCategoryId = targetId;
+  saveData(); renderAll(); updateStats(); updateHiddenToggleVisibility();
+  showToast('已将 ' + movedCount + ' 个标签从「' + sourceCat.name + '」合并到「' + targetCat.name + '」');
+}
+
+function generateTagId() {
+  return 't_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9) + '_' + Math.random().toString(36).substr(2, 5);
+}
+
+function batchAddTags() {
+  if (!requireAdmin()) return;
+  const catId = document.getElementById('batch-cat-select').value;
+  const text = document.getElementById('batch-tags').value.trim();
+  const skipDup = document.getElementById('skip-dup-check').checked;
+  if (!text) { showToast('请输入标签内容'); return; }
+  const lines = text.split('\n').map(function(l) { return l.trim(); }).filter(function(l) { return l; });
+  let added = 0, skipped = 0;
+  lines.forEach(function(line) {
+    const match = line.match(/^([a-zA-Z0-9_\-\s\(\):.,]+?)(?:\s+([^\u0000-\u007F][^]*))?$/);
+    if (match) {
+      const name = match[1].trim();
+      const cn = match[2] ? match[2].trim() : '';
+      if (name) {
+        const exists = tags.some(function(t) { return normalizeTagName(t.name) === normalizeTagName(name); });
+        if (exists) { skipped++; if (skipDup) return; }
+        tags.push({ id: generateTagId(), catId: catId, name: name, cn: cn, weight: 1.0 });
+        added++;
+      }
+    }
+  });
+  document.getElementById('batch-tags').value = '';
+  saveData(); renderAdmin(); renderSidebar(); renderTags(); updateStats();
+  if (skipped > 0) showToast('添加 ' + added + ' 个，跳过 ' + skipped + ' 个重复标签');
+  else showToast('成功添加 ' + added + ' 个标签');
+}
+
+function deleteTag(tagId) {
+  if (!requireAdmin()) return;
+  if (!confirm('确定删除此标签？')) return;
+  tags = tags.filter(function(t) { return t.id !== tagId; });
+  selectedTags.delete(tagId);
+  saveData(); renderAdmin(); renderSidebar(); renderTags(); renderSelectedTags(); updatePrompt(); updateStats();
+}
+
+function updateTagWeight(tagId, weight) {
+  if (!requireAdmin()) return;
+  const tag = tags.find(function(t) { return t.id === tagId; });
+  if (tag) {
+    tag.weight = parseFloat(weight); saveData();
+    if (selectedTags.has(tagId)) { selectedTags.set(tagId, tag.weight); updatePrompt(); renderSelectedTags(); }
+  }
+  const activeEl = document.activeElement;
+  if (activeEl && activeEl.type === 'range') {
+    const valueSpan = activeEl.parentElement.querySelector('.weight-value');
+    if (valueSpan) valueSpan.textContent = parseFloat(weight).toFixed(1);
+  }
+}
+
+let toastHideTimer = null;
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  if (toastHideTimer) clearTimeout(toastHideTimer);
+  toastHideTimer = setTimeout(function() { toast.classList.remove('show'); }, 2000);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
