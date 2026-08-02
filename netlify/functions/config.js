@@ -5,7 +5,7 @@ exports.handler = async function() {
     body: JSON.stringify({
       SUPABASE_URL: process.env.SUPABASE_URL || '',
       SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || '',
-      TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY || ''
+      VAPTCHA_VID: process.env.VAPTCHA_VID || ''
     })
   };
 };

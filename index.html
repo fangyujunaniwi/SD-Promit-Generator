@@ -241,7 +241,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 }
 </style>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+<script src="https://v-cn.vaptcha.com/v3.js"></script>
 </head>
 <body>
 <div class="widget-root" id="app">
@@ -472,7 +472,7 @@ fish 鱼
       <input type="password" id="register-password-confirm" placeholder="确认密码" autocomplete="new-password">
       <button class="btn btn-primary" onclick="handleRegister()">注册</button>
     </div>
-    <!-- [MODIFIED] 新增：hCaptcha 人机验证 -->
+    <!-- [MODIFIED] 新增：Vaptcha 人机验证 -->
     <div id="captcha-widget" style="margin-top:12px;display:flex;justify-content:center;"></div>
     <div class="auth-divider">或</div>
     <button class="btn" onclick="closeAuthModal()">取消</button>
@@ -492,45 +492,56 @@ let currentUser = null;
 let isAdmin = false;
 let isReadOnly = true; // 默认只读，直到确认是管理员
 
-// [MODIFIED] 新增：Cloudflare Turnstile 人机验证相关状态
-let turnstileSiteKey = '';
-let turnstileWidgetId = null;
+// [MODIFIED] 新增：Vaptcha 人机验证相关状态
+let vaptchaVid = '';
+let vaptchaObj = null;
 window.captchaToken = '';
 
-// ==================== [MODIFIED] 新增：Turnstile 渲染与令牌管理 ====================
+// ==================== [MODIFIED] 新增：Vaptcha 渲染与令牌管理 ====================
 function renderCaptcha() {
   const wrapper = document.getElementById('captcha-widget');
   if (!wrapper) return;
-  wrapper.innerHTML = '';
-  if (!turnstileSiteKey || typeof turnstile === 'undefined') {
-    wrapper.innerHTML = '<div style="font-size:12px;color:#999;">人机验证未配置，无法登录/注册</div>';
+  window.captchaToken = '';
+  if (!vaptchaVid) {
+    wrapper.innerHTML = '<div style="font-size:12px;color:#999;padding:14px 0;">人机验证未配置，无法登录/注册</div>';
     return;
   }
-  if (turnstileWidgetId != null) {
-    try { turnstile.remove(turnstileWidgetId); } catch (e) {}
-    turnstileWidgetId = null;
+  if (vaptchaObj) {
+    try { vaptchaObj.reset(); } catch (e) {}
+    return;
   }
-  window.captchaToken = '';
+  wrapper.innerHTML = '';
+  wrapper.style.width = '300px';
+  wrapper.style.height = '44px';
   try {
-    const div = document.createElement('div');
-    wrapper.appendChild(div);
-    turnstileWidgetId = turnstile.render(div, {
-      sitekey: turnstileSiteKey,
-      theme: 'light',
-      callback: function(token) { window.captchaToken = token; },
-      'expired-callback': function() { window.captchaToken = ''; },
-      'error-callback': function() { window.captchaToken = ''; }
+    vaptcha({
+      vid: vaptchaVid,
+      type: 'click',
+      lang: 'zh-CN',
+      container: wrapper
+    }).then(function(obj) {
+      vaptchaObj = obj;
+      vaptchaObj.render();
+      vaptchaObj.listen('pass', function() {
+        window.captchaToken = vaptchaObj.getToken() || 'passed';
+      });
+      vaptchaObj.listen('fail', function() {
+        window.captchaToken = '';
+      });
+    }).catch(function(e) {
+      console.error('Vaptcha init error:', e);
+      wrapper.innerHTML = '<div style="font-size:12px;color:#dc3545;padding:14px 0;">人机验证加载失败</div>';
     });
   } catch (e) {
-    console.error('Turnstile render error:', e);
-    wrapper.innerHTML = '<div style="font-size:12px;color:#dc3545;">人机验证加载失败</div>';
+    console.error('Vaptcha render error:', e);
+    wrapper.innerHTML = '<div style="font-size:12px;color:#dc3545;padding:14px 0;">人机验证加载失败</div>';
   }
 }
 
 function resetCaptcha() {
   window.captchaToken = '';
-  if (typeof turnstile !== 'undefined' && turnstileWidgetId != null) {
-    try { turnstile.reset(turnstileWidgetId); } catch (e) {}
+  if (vaptchaObj) {
+    try { vaptchaObj.reset(); } catch (e) {}
   }
 }
 
@@ -582,8 +593,8 @@ async function autoLoadEnvConfig() {
       const data = await resp.json();
       const url = data.SUPABASE_URL || data.url || data.supabaseUrl || '';
       const key = data.SUPABASE_ANON_KEY || data.key || data.anonKey || '';
-      const siteKey = data.TURNSTILE_SITE_KEY || data.turnstileSiteKey || data.siteKey || '';
-      if (siteKey) turnstileSiteKey = siteKey;
+      const vid = data.VAPTCHA_VID || data.vaptchaVid || data.vid || '';
+      if (vid) vaptchaVid = vid;
       if (url && key) {
         document.getElementById('env-sb-url').value = url;
         document.getElementById('env-sb-key').value = key;
@@ -802,7 +813,7 @@ function updateAdminVisibility() {
   });
 }
 
-// ==================== [MODIFIED] 修改点 7: 新增认证模态框相关函数（含 hCaptcha） ====================
+// ==================== [MODIFIED] 修改点 7: 新增认证模态框相关函数（含 Vaptcha） ====================
 function openAuthModal() {
   document.getElementById('auth-modal').style.display = 'flex';
   document.getElementById('auth-error').textContent = '';
@@ -838,11 +849,15 @@ async function handleLogin() {
     return;
   }
 
+  if (!window.captchaToken) {
+    errorEl.textContent = '请先完成人机验证';
+    return;
+  }
+
   try {
     const { data, error } = await supabaseClient.auth.signInWithPassword({
       email: email,
-      password: password,
-      options: { captchaToken: window.captchaToken || '' }
+      password: password
     });
 
     if (error) throw error;
@@ -883,11 +898,15 @@ async function handleRegister() {
     return;
   }
 
+  if (!window.captchaToken) {
+    errorEl.textContent = '请先完成人机验证';
+    return;
+  }
+
   try {
     const { data, error } = await supabaseClient.auth.signUp({
       email: email,
-      password: password,
-      options: { captchaToken: window.captchaToken || '' }
+      password: password
     });
 
     if (error) throw error;
