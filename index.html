@@ -740,12 +740,12 @@ async function connectSupabase() {
       updateUserUI();
     }
 
-    // 尝试读取数据验证连接
+    // 尝试读取数据验证连接（不依赖 id 列类型）
     const { data, error } = await supabaseClient
       .from('sd_data')
       .select('data')
-      .eq('id', 1)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (error && error.code !== 'PGRST116') {
       if (error.code === '42P01') {
@@ -1139,9 +1139,16 @@ async function saveToSupabase() {
   updateSyncStatus('syncing', '同步中...');
   try {
     const data = { categories: categories, tags: tags, savedAt: new Date().toISOString() };
-    const { error } = await supabaseClient
-      .from('sd_data')
-      .upsert({ id: 1, data: data, updated_at: new Date().toISOString() });
+    const payload = { data: data, updated_at: new Date().toISOString() };
+    const existing = await supabaseClient.from('sd_data').select('id').limit(1).maybeSingle();
+    let error = existing.error && existing.error.code !== 'PGRST116' ? existing.error : null;
+    if (!error) {
+      if (existing.data && existing.data.id != null) {
+        error = (await supabaseClient.from('sd_data').update(payload).eq('id', existing.data.id)).error;
+      } else {
+        error = (await supabaseClient.from('sd_data').insert(payload)).error;
+      }
+    }
 
     if (error) {
       if (error.code === '42501') {
