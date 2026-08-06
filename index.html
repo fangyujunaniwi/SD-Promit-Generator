@@ -497,7 +497,8 @@ let isReadOnly = true; // 默认只读，直到确认是管理员
 // [MODIFIED] 新增：Vaptcha 人机验证相关状态
 let vaptchaVid = '';
 let vaptchaObj = null;
-let captchaApiPath = '/api/captcha';
+const appBasePath = (location.pathname === '/sd' || location.pathname.startsWith('/sd/')) ? '/sd' : '';
+let captchaApiPath = appBasePath + '/api/captcha';
 let vaptchaScriptLoading = false;
 window.captchaToken = '';
 window.vaptchaVerify = null;
@@ -658,7 +659,7 @@ function clearEnvConfig() {
 
 // ==================== [MODIFIED] 新增：从 Serverless 平台自动读取环境变量 ====================
 async function autoLoadEnvConfig() {
-  const endpoints = ['/api/config', '/.netlify/functions/config'];
+  const endpoints = [appBasePath + '/api/config', appBasePath + '/.netlify/functions/config'];
   for (let i = 0; i < endpoints.length; i++) {
     try {
       const controller = new AbortController();
@@ -672,7 +673,7 @@ async function autoLoadEnvConfig() {
       const vid = data.VAPTCHA_VID || data.vaptchaVid || data.vid || '';
       if (vid) vaptchaVid = vid;
       if (url && key) {
-        captchaApiPath = endpoints[i] === '/.netlify/functions/config' ? '/.netlify/functions/captcha' : '/api/captcha';
+        captchaApiPath = endpoints[i].indexOf('/.netlify/functions/config') >= 0 ? appBasePath + '/.netlify/functions/captcha' : appBasePath + '/api/captcha';
         document.getElementById('env-sb-url').value = url;
         document.getElementById('env-sb-key').value = key;
         localStorage.setItem(ENV_CONFIG_STORAGE, JSON.stringify({ url: url, key: key, source: 'server-env', savedAt: new Date().toISOString() }));
