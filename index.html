@@ -52,6 +52,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 .search-result-group-header .cat-name { color: #1a1a1a; }
 .search-result-group-header .cat-count { font-size: 12px; color: #999; font-weight: 400; }
 .preview-panel { width: 340px; border-left: 1px solid #e5e5e5; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: #fafafa; }
+.mobile-bar { display: none; }
 .panel-title { font-size: 14px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
 .prompt-box { flex: 1; min-height: 120px; padding: 14px; border-radius: 10px; border: 1px solid #e5e5e5; background: #fff; font-size: 14px; line-height: 1.6; resize: none; font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace; color: #1a1a1a; }
 .prompt-box:focus { outline: none; border-color: #1a1a1a; }
@@ -241,6 +242,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
   .env-config-row { flex-direction: column; align-items: stretch; }
   .env-config-row .form-input { min-width: auto; width: 100%; }
   .user-bar .user-email { max-width: 100px; }
+  .widget-root { padding-bottom: 52px; }
+  .mobile-bar { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #e5e5e5; padding: 8px 12px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); gap: 8px; align-items: center; z-index: 60; box-shadow: 0 -2px 10px rgba(0,0,0,0.06); }
+  .mobile-bar .mobile-count { font-size: 13px; color: #666; white-space: nowrap; flex-shrink: 0; }
+  .mobile-bar .btn { flex: 1; padding: 10px 6px; font-size: 13px; }
+  .preview-panel { display: none; }
+  #sync-text { display: none; }
+  .icon-btn { width: 40px; height: 40px; font-size: 16px; }
+  .tag-table { font-size: 13px; }
+  .tag-table th, .tag-table td { padding: 8px 8px; }
+  .weight-slider input[type="range"] { width: 64px; }
+  .admin-section-title { font-size: 16px; }
+  .dup-panel .btn-group { flex-direction: column; }
+  #category-list { max-height: 240px; }
+  .modal-content { width: 94%; }
 }
 </style>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -450,6 +465,13 @@ fish 鱼
         </div>
       </div>
     </div>
+  </div>
+
+  <div class="mobile-bar" id="mobile-bar">
+    <span class="mobile-count" id="mobile-count">已选 0 个</span>
+    <button class="btn btn-primary" onclick="openPromptSheet()">提示词</button>
+    <button class="btn" onclick="copyPrompt()">复制</button>
+    <button class="btn" onclick="clearAll()">清空</button>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -1204,6 +1226,8 @@ function switchTab(tab) {
   }
 
   currentView = tab;
+  const mobileBar = document.getElementById('mobile-bar');
+  if (mobileBar) mobileBar.style.display = (tab === 'generator') ? '' : 'none';
   document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
   document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
   document.getElementById('generator-view').style.display = 'none';
@@ -1505,13 +1529,70 @@ function clearGlobalSearch() {
 
 function renderSelectedTags() {
   const container = document.getElementById('selected-tags-list');
-  if (selectedTags.size === 0) { container.innerHTML = '<span style="color:#ccc;font-size:13px;">未选择任何标签</span>'; return; }
-  container.innerHTML = Array.from(selectedTags.entries()).map(function(entry) {
-    const tagId = entry[0], weight = entry[1];
-    const tag = tags.find(function(t) { return t.id === tagId; });
+  if (selectedTags.size === 0) {
+    container.innerHTML = '<span style="color:#ccc;font-size:13px;">未选择任何标签</span>';
+  } else {
+    container.innerHTML = Array.from(selectedTags.entries()).map(function(entry) {
+      const tagId = entry[0], weight = entry[1];
+      const tag = tags.find(function(t) { return t.id === tagId; });
+      if (!tag) return '';
+      const display = tag.cn ? tag.name + ' (' + tag.cn + ')' : tag.name;
+      return '<div class="selected-tag-item" onclick="toggleTag(\'' + tag.id + '\')" title="点击移除">' + display + (weight !== 1.0 ? '<span style="font-family:monospace;">:' + weight.toFixed(1) + '</span>' : '') + '<span style="font-size:10px;opacity:0.6;">&#x2715;</span></div>';
+    }).join('');
+  }
+  updateMobileBar();
+  syncPromptSheet();
+}
+
+function updateMobileBar() {
+  const bar = document.getElementById('mobile-bar');
+  if (!bar) return;
+  const countEl = document.getElementById('mobile-count');
+  if (countEl) countEl.textContent = '已选 ' + selectedTags.size + ' 个';
+}
+
+function openPromptSheet() {
+  let sheet = document.getElementById('prompt-sheet');
+  if (!sheet) {
+    sheet = document.createElement('div');
+    sheet.className = 'modal-overlay';
+    sheet.id = 'prompt-sheet';
+    sheet.innerHTML = '<div class="modal-content"><div class="modal-title">提示词</div>' +
+      '<textarea class="prompt-box" id="prompt-sheet-text" readonly style="min-height:120px;width:100%;"></textarea>' +
+      '<div class="panel-title" style="margin-top:12px;">已选标签</div>' +
+      '<div class="selected-tags-list" id="prompt-sheet-tags"></div>' +
+      '<div class="btn-group" style="margin-top:12px;"><button class="btn btn-primary" id="prompt-sheet-copy">复制</button><button class="btn" id="prompt-sheet-clear">清空</button><button class="btn" id="prompt-sheet-close">关闭</button></div></div>';
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', function(e) { if (e.target === sheet) closePromptSheet(); });
+    document.getElementById('prompt-sheet-copy').addEventListener('click', copyPrompt);
+    document.getElementById('prompt-sheet-clear').addEventListener('click', function() { clearAll(); });
+    document.getElementById('prompt-sheet-close').addEventListener('click', closePromptSheet);
+  }
+  sheet.style.display = 'flex';
+  syncPromptSheet();
+}
+
+function closePromptSheet() {
+  const sheet = document.getElementById('prompt-sheet');
+  if (sheet) sheet.style.display = 'none';
+}
+
+function syncPromptSheet() {
+  const sheet = document.getElementById('prompt-sheet');
+  if (!sheet || sheet.style.display === 'none') return;
+  const textEl = document.getElementById('prompt-sheet-text');
+  const textArea = document.getElementById('prompt-text');
+  if (textEl && textArea) textEl.value = textArea.value;
+  const tagsEl = document.getElementById('prompt-sheet-tags');
+  if (!tagsEl) return;
+  if (selectedTags.size === 0) {
+    tagsEl.innerHTML = '<span style="color:#ccc;font-size:13px;">未选择任何标签</span>';
+    return;
+  }
+  tagsEl.innerHTML = Array.from(selectedTags.entries()).map(function(entry) {
+    const tag = tags.find(function(t) { return t.id === entry[0]; });
     if (!tag) return '';
-    const display = tag.cn ? tag.name + ' (' + tag.cn + ')' : tag.name;
-    return '<div class="selected-tag-item" onclick="toggleTag(\'' + tag.id + '\')" title="点击移除">' + display + (weight !== 1.0 ? '<span style="font-family:monospace;">:' + weight.toFixed(1) + '</span>' : '') + '<span style="font-size:10px;opacity:0.6;">&#x2715;</span></div>';
+    return '<span class="selected-tag-item" style="cursor:default;">' + escapeHtml(tag.name) + (entry[1] !== 1.0 ? ' :' + entry[1].toFixed(1) : '') + '</span>';
   }).join('');
 }
 
@@ -1621,6 +1702,7 @@ function updatePrompt() {
     else parts.push('(' + tag.name + ':' + weight.toFixed(1) + ')');
   });
   document.getElementById('prompt-text').value = parts.join(', ');
+  syncPromptSheet();
 }
 
 function clearAll() {
