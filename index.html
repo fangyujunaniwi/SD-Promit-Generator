@@ -1159,12 +1159,45 @@ function updateSyncStatus(status, text) {
 }
 
 // ==================== [MODIFIED] 新增：建议提交与管理员查看 ====================
+async function getSupabaseToken() {
+  if (!supabaseClient) return null;
+  try {
+    const rs = await supabaseClient.auth.getSession();
+    const session = rs && rs.data && rs.data.session ? rs.data.session : null;
+    return session ? session.access_token : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function submitSuggestion() {
   const title = document.getElementById('suggest-title').value.trim();
   const content = document.getElementById('suggest-content').value.trim();
   if (!content) { showToast('请输入建议内容'); return; }
   if (!supabaseClient) { showToast('请先连接 Supabase'); return; }
   try {
+    if (storageBackend === 'tidb') {
+      const resp = await fetch(appBasePath + '/api/suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 's-' + Date.now() + '-' + Math.random().toString(16).slice(2),
+          title: title || null,
+          content: content,
+          email: currentUser ? currentUser.email : null
+        })
+      });
+      if (!resp.ok) {
+        let msg = 'HTTP ' + resp.status;
+        try { const j = await resp.json(); if (j && j.error) msg = j.error; } catch (e) { /* 非 JSON 响应 */ }
+        throw new Error(msg);
+      }
+      document.getElementById('suggest-title').value = '';
+      document.getElementById('suggest-content').value = '';
+      document.getElementById('suggest-result').innerHTML = '<div class="dup-empty">建议已提交，感谢你的反馈！</div>';
+      showToast('建议已提交');
+      return;
+    }
     const { error } = await supabaseClient.from('suggestions').insert({
       title: title || null,
       content: content,
@@ -1188,13 +1221,30 @@ async function loadSuggestions() {
   if (!supabaseClient) { listEl.textContent = '尚未连接 Supabase'; return; }
   listEl.textContent = '加载中...';
   try {
-    const { data, error } = await supabaseClient
-      .from('suggestions')
-      .select('id, title, content, email, created_at')
-      .order('created_at', { ascending: false })
-      .limit(100);
-    if (error) throw error;
-    if (countEl) countEl.textContent = data ? data.length : 0;
+    let data;
+    if (storageBackend === 'tidb') {
+      const token = await getSupabaseToken();
+      if (!token) { listEl.textContent = '未登录'; return; }
+      const resp = await fetch(appBasePath + '/api/suggestions?t=' + Date.now(), {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!resp.ok) {
+        let msg = 'HTTP ' + resp.status;
+        try { const j = await resp.json(); if (j && j.error) msg = j.error; } catch (e) { /* 非 JSON 响应 */ }
+        throw new Error(msg);
+      }
+      const j = await resp.json();
+      data = j.list || [];
+    } else {
+      const res = await supabaseClient
+        .from('suggestions')
+        .select('id, title, content, email, created_at')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (res.error) throw res.error;
+      data = res.data || [];
+    }
+    if (countEl) countEl.textContent = data.length;
     if (!data || data.length === 0) {
       listEl.innerHTML = '<div class="dup-empty">暂无建议</div>';
       return;
@@ -1217,6 +1267,22 @@ async function deleteSuggestion(id) {
   if (!id) return;
   if (!confirm('确定删除这条建议？')) return;
   try {
+    if (storageBackend === 'tidb') {
+      const token = await getSupabaseToken();
+      if (!token) { showToast('未登录'); return; }
+      const resp = await fetch(appBasePath + '/api/suggestions?id=' + encodeURIComponent(id), {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!resp.ok) {
+        let msg = 'HTTP ' + resp.status;
+        try { const j = await resp.json(); if (j && j.error) msg = j.error; } catch (e) { /* 非 JSON 响应 */ }
+        throw new Error(msg);
+      }
+      showToast('建议已删除');
+      loadSuggestions();
+      return;
+    }
     const { error } = await supabaseClient.from('suggestions').delete().eq('id', id);
     if (error) throw error;
     showToast('建议已删除');

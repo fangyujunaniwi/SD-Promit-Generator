@@ -137,6 +137,14 @@ CREATE TABLE IF NOT EXISTS sd_data (
   data JSON NOT NULL,
   saved_at BIGINT
 );
+
+CREATE TABLE IF NOT EXISTS suggestions (
+  id VARCHAR(64) PRIMARY KEY,
+  title TEXT,
+  content TEXT NOT NULL,
+  email TEXT,
+  created_at BIGINT
+);
 ```
 
 3. 在 **Connect** 页面复制 **General connection** 连接串（`mysql://...` 格式，含用户名密码）
@@ -147,7 +155,9 @@ CREATE TABLE IF NOT EXISTS sd_data (
 | `TIDB_DATABASE_URL` | 第 3 步复制的 TiDB 连接串（机密） |
 | `STORAGE_BACKEND` | 填 `tidb` 启用；不填默认 `supabase` |
 
-5. 保存后手动 **Redeploy**。启用后首页数据经 `/api/tidb` 读取（`functions/api/tidb.js`），后台保存写入 TiDB `sd_data` 表
+5. 保存后手动 **Redeploy**。启用后首页数据经 `/api/tidb` 读取（`functions/api/tidb.js`），后台保存写入 TiDB `sd_data` 表；建议反馈经 `/api/suggestions`（`functions/api/suggestions.js`）读写 TiDB `suggestions` 表（提交无需登录，查看/删除需管理员）
+
+> 说明：Supabase 仅保留认证职能（登录、邮箱验证、管理员白名单校验），数据全部存于 TiDB
 
 ## 部署到 Vercel / Netlify
 
