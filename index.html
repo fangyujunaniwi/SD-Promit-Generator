@@ -1454,6 +1454,7 @@ async function saveToTiDB() {
       console.error('TiDB save error:', msg);
     } else {
       updateSyncStatus('synced', '已同步');
+      checkBackendStatus();
     }
   } catch (e) {
     console.error('TiDB save error', e);

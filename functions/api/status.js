@@ -31,14 +31,16 @@ export async function onRequest(context) {
       tidbConnected = true;
       try {
         const r = await conn.execute('SELECT data_key, saved_at FROM sd_data WHERE data_key = ? LIMIT 1', ['main']);
-        if (r.rows && r.rows.length) {
+        const rRows = Array.isArray(r) ? r : ((r && r.rows) || []);
+        if (rRows.length) {
           dataFound = true;
-          savedAt = r.rows[0].saved_at || null;
+          savedAt = rRows[0].saved_at || null;
         }
       } catch (e) { /* sd_data 表缺失等情况，仅影响数据状态 */ }
       try {
         const r = await conn.execute('SELECT COUNT(*) AS cnt FROM suggestions');
-        if (r.rows && r.rows[0]) suggestionsCount = Number(r.rows[0].cnt) || 0;
+        const rRows = Array.isArray(r) ? r : ((r && r.rows) || []);
+        if (rRows[0]) suggestionsCount = Number(rRows[0].cnt) || 0;
       } catch (e) { /* suggestions 表缺失 */ }
     } catch (e) {
       tidbError = e.message;

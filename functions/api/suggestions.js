@@ -68,7 +68,7 @@ export async function onRequest(context) {
         const result = await conn.execute(
           'SELECT id, title, content, email, created_at FROM suggestions ORDER BY created_at DESC LIMIT 100'
         );
-        const rows = (result && result.rows) ? result.rows : [];
+        const rows = Array.isArray(result) ? result : ((result && result.rows) || []);
         const list = rows.map(function (r) {
           return {
             id: r.id,

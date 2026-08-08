@@ -39,7 +39,7 @@ async function loadFromTiDB(env) {
       'SELECT data FROM sd_data WHERE data_key = ? LIMIT 1',
       ['main']
     );
-    const rows = (result && result.rows) ? result.rows : [];
+    const rows = Array.isArray(result) ? result : ((result && result.rows) || []);
     if (!rows.length) return { found: false, categories: [], tags: [] };
     const raw = rows[0].data;
     const d = typeof raw === 'string' ? JSON.parse(raw) : raw;
