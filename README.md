@@ -21,31 +21,6 @@ netlify/functions/        # Netlify 函数
 functions/api/            # Cloudflare Pages 函数
 ```
 
-## niwi.cc 个人主页（niwi/index.html）
-
-独立于生成器的个人主页，包含博客 / 项目 / 关于等页面与完整后台管理（文章、项目、站点设置 CRUD）。
-
-- 复用同一套 Supabase 认证与 `admins` 管理员白名单
-- 内容存储于 `niwi_data` 表（单行 JSONB），导出/导入 JSON 可迁移
-
-### 所需表
-
-```sql
-create table if not exists niwi_data (
-  id integer primary key,
-  data jsonb
-);
-
-alter table niwi_data enable row level security;
-create policy "niwi_data 公开读" on niwi_data for select using (true);
-create policy "niwi_data 管理员写" on niwi_data for insert
-  with check (auth.uid() in (select user_id from admins));
-create policy "niwi_data 管理员改" on niwi_data for update
-  using (auth.uid() in (select user_id from admins));
-```
-
-环境变量与部署方式同下方 SD 生成器（Vercel 使用 `api/`，Netlify 使用 `netlify/functions/`，Cloudflare Pages 使用 `functions/api/`）。
-
 ## 部署教程（Cloudflare Pages）
 
 ### 1. 创建 Supabase 项目并建表
