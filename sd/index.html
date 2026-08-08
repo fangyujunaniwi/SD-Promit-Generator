@@ -560,6 +560,7 @@ let supabaseClient = null;
 let currentUser = null;
 let isAdmin = false;
 let isReadOnly = true; // 默认只读，直到确认是管理员
+let storageBackend = 'supabase'; // 云端存储后端：supabase（默认）| tidb（TiDB Cloud，需配置 TIDB_DATABASE_URL）
 
 // [MODIFIED] 新增：Vaptcha 人机验证相关状态
 let vaptchaVid = '';
@@ -764,6 +765,8 @@ async function autoLoadEnvConfig() {
       if (vid) vaptchaVid = vid;
       envHomeUrl = data.HOME_URL || '';
       envGithubUrl = data.GITHUB_URL || '';
+      const backend = String(data.STORAGE_BACKEND || data.storageBackend || 'supabase').toLowerCase();
+      if (backend === 'tidb' || backend === 'supabase') storageBackend = backend;
       applyExternalLinks();
       if (url && key) {
         captchaApiPath = endpoints[i].indexOf('/.netlify/functions/config') >= 0 ? appBasePath + '/.netlify/functions/captcha' : appBasePath + '/api/captcha';
@@ -838,6 +841,28 @@ async function connectSupabase() {
     }
 
     // 尝试读取数据验证连接（不依赖 id 列类型）
+    if (storageBackend === 'tidb') {
+      const resp = await fetch(appBasePath + '/api/tidb?t=' + Date.now(), { cache: 'no-store' });
+      if (!resp.ok) {
+        throw new Error('TiDB 云端数据读取失败: HTTP ' + resp.status);
+      }
+      const cloudData = await resp.json();
+      if (cloudData && cloudData.found && cloudData.categories && cloudData.tags) {
+        categories = cloudData.categories;
+        tags = cloudData.tags;
+        categories.forEach(function(c) { if (typeof c.hidden === 'undefined') c.hidden = false; });
+        selectedTags.clear();
+        activeCategoryId = getVisibleCategories()[0] ? getVisibleCategories()[0].id : (categories[0] ? categories[0].id : '');
+        saveToLocalStorage();
+        renderAll(); updateStats(); updateHiddenToggleVisibility();
+        updateSyncStatus('synced', '服务器连接成功');
+        showToast('服务器连接成功，数据已同步');
+      } else {
+        await saveToSupabase();
+        updateSyncStatus('synced', '服务器连接成功');
+        showToast('服务器连接成功，数据已上传');
+      }
+    } else {
     const { data, error } = await supabaseClient
       .from('sd_data')
       .select('data')
@@ -872,6 +897,7 @@ async function connectSupabase() {
       await saveToSupabase();
       updateSyncStatus('synced', '服务器连接成功');
       showToast('服务器连接成功，已创建云端数据');
+    }
     }
 
     updateAdminVisibility();
@@ -1232,6 +1258,7 @@ function requireAdmin() {
 }
 
 async function saveToSupabase() {
+  if (storageBackend === 'tidb') { await saveToTiDB(); return; }
   if (!supabaseClient) return;
   updateSyncStatus('syncing', '同步中...');
   try {
@@ -1266,6 +1293,48 @@ async function saveToSupabase() {
     }
   } catch (e) {
     console.error('Supabase save error', e);
+    updateSyncStatus('error', '同步失败');
+  }
+}
+
+// ==================== [MODIFIED] 新增：TiDB Cloud 写入（STORAGE_BACKEND=tidb 时使用） ====================
+async function saveToTiDB() {
+  if (!supabaseClient) return;
+  let session = null;
+  try {
+    const rs = await supabaseClient.auth.getSession();
+    session = rs && rs.data && rs.data.session ? rs.data.session : null;
+  } catch (e) { /* 未登录 */ }
+  if (!session) {
+    showToast('未登录，无法写入 TiDB 云端');
+    return;
+  }
+  updateSyncStatus('syncing', '同步中...');
+  try {
+    const data = { categories: categories, tags: tags, savedAt: new Date().toISOString() };
+    const resp = await fetch(appBasePath + '/api/tidb', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token
+      },
+      body: JSON.stringify({ data: data })
+    });
+    if (!resp.ok) {
+      let msg = 'HTTP ' + resp.status;
+      try {
+        const j = await resp.json();
+        if (j && j.error) msg = j.error;
+      } catch (e) { /* 非 JSON 响应 */ }
+      showToast('TiDB 云端写入失败: ' + msg);
+      updateSyncStatus('error', '同步失败');
+      console.error('TiDB save error:', msg);
+    } else {
+      updateSyncStatus('synced', '已同步');
+    }
+  } catch (e) {
+    console.error('TiDB save error', e);
+    showToast('TiDB 云端写入失败: ' + e.message);
     updateSyncStatus('error', '同步失败');
   }
 }

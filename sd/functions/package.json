@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "dependencies": {
+    "@tidbcloud/serverless": "^0.3.0"
+  }
+}
