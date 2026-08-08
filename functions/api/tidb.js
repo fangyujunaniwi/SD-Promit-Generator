@@ -50,15 +50,11 @@ export async function onRequest(context) {
 
     try {
       const conn = connect({ url: dbUrl });
-      try {
-        await conn.execute(
-          'INSERT INTO sd_data (data_key, data, saved_at) VALUES (?, CAST(? AS JSON), ?) ' +
-          'ON DUPLICATE KEY UPDATE data = VALUES(data), saved_at = VALUES(saved_at)',
-          ['main', JSON.stringify(data), Date.now()]
-        );
-      } finally {
-        await conn.close();
-      }
+      await conn.execute(
+        'INSERT INTO sd_data (data_key, data, saved_at) VALUES (?, CAST(? AS JSON), ?) ' +
+        'ON DUPLICATE KEY UPDATE data = VALUES(data), saved_at = VALUES(saved_at)',
+        ['main', JSON.stringify(data), Date.now()]
+      );
       return json({ ok: true });
     } catch (e) {
       return json({ error: 'TiDB 写入失败: ' + e.message }, 500);

@@ -35,23 +35,19 @@ async function loadFromTiDB(env) {
   if (!url) return { found: false, categories: [], tags: [] };
   try {
     const conn = connect({ url });
-    try {
-      const result = await conn.execute(
-        'SELECT data FROM sd_data WHERE data_key = ? LIMIT 1',
-        ['main']
-      );
-      const rows = (result && result.rows) ? result.rows : [];
-      if (!rows.length) return { found: false, categories: [], tags: [] };
-      const raw = rows[0].data;
-      const d = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      return {
-        found: true,
-        categories: (d && d.categories && Array.isArray(d.categories)) ? d.categories : [],
-        tags: (d && d.tags && Array.isArray(d.tags)) ? d.tags : []
-      };
-    } finally {
-      await conn.close();
-    }
+    const result = await conn.execute(
+      'SELECT data FROM sd_data WHERE data_key = ? LIMIT 1',
+      ['main']
+    );
+    const rows = (result && result.rows) ? result.rows : [];
+    if (!rows.length) return { found: false, categories: [], tags: [] };
+    const raw = rows[0].data;
+    const d = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return {
+      found: true,
+      categories: (d && d.categories && Array.isArray(d.categories)) ? d.categories : [],
+      tags: (d && d.tags && Array.isArray(d.tags)) ? d.tags : []
+    };
   } catch (e) {
     return { found: false, categories: [], tags: [] };
   }

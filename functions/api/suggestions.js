@@ -45,14 +45,10 @@ export async function onRequest(context) {
 
     try {
       const conn = connect({ url: dbUrl });
-      try {
-        await conn.execute(
-          'INSERT INTO suggestions (id, title, content, email, created_at) VALUES (?, ?, ?, ?, ?)',
-          [id, title, content, email, Date.now()]
-        );
-      } finally {
-        await conn.close();
-      }
+      await conn.execute(
+        'INSERT INTO suggestions (id, title, content, email, created_at) VALUES (?, ?, ?, ?, ?)',
+        [id, title, content, email, Date.now()]
+      );
       return json({ ok: true, id: id });
     } catch (e) {
       return json({ error: '建议提交失败: ' + e.message }, 500);
@@ -68,30 +64,26 @@ export async function onRequest(context) {
 
     try {
       const conn = connect({ url: dbUrl });
-      try {
-        if (method === 'GET') {
-          const result = await conn.execute(
-            'SELECT id, title, content, email, created_at FROM suggestions ORDER BY created_at DESC LIMIT 100'
-          );
-          const rows = (result && result.rows) ? result.rows : [];
-          const list = rows.map(function (r) {
-            return {
-              id: r.id,
-              title: r.title,
-              content: r.content,
-              email: r.email,
-              created_at: r.created_at ? new Date(r.created_at).toISOString() : null
-            };
-          });
-          return json({ list: list });
-        }
-        const id = new URL(request.url).searchParams.get('id');
-        if (!id) return json({ error: '缺少 id 参数' }, 400);
-        await conn.execute('DELETE FROM suggestions WHERE id = ?', [id]);
-        return json({ ok: true });
-      } finally {
-        await conn.close();
+      if (method === 'GET') {
+        const result = await conn.execute(
+          'SELECT id, title, content, email, created_at FROM suggestions ORDER BY created_at DESC LIMIT 100'
+        );
+        const rows = (result && result.rows) ? result.rows : [];
+        const list = rows.map(function (r) {
+          return {
+            id: r.id,
+            title: r.title,
+            content: r.content,
+            email: r.email,
+            created_at: r.created_at ? new Date(r.created_at).toISOString() : null
+          };
+        });
+        return json({ list: list });
       }
+      const id = new URL(request.url).searchParams.get('id');
+      if (!id) return json({ error: '缺少 id 参数' }, 400);
+      await conn.execute('DELETE FROM suggestions WHERE id = ?', [id]);
+      return json({ ok: true });
     } catch (e) {
       return json({ error: '操作失败: ' + e.message }, 500);
     }
