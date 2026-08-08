@@ -124,6 +124,31 @@ insert into admins (user_id, email) values ('粘贴用户UUID', '你的邮箱@ex
 5. 每次修改环境变量后需在 **Deployments** 手动 **Redeploy** 生效
 6. 打开网站 → 右上角登录管理员账号 → 后台管理即可编辑标签
 
+### 4. （可选）使用 TiDB Cloud 作为数据库
+
+默认数据存储为 Supabase；也可改用 TiDB Cloud Serverless（免费档）作为数据后端，写入鉴权仍走 Supabase 的 `admins` 白名单。
+
+1. 注册 https://tidbcloud.com → 创建 **Serverless** 集群（免费档够用）→ 初始化完成后点击 **Connect**
+2. 建表（在 TiDB Cloud SQL Editor 或本地客户端执行）：
+
+```sql
+CREATE TABLE IF NOT EXISTS sd_data (
+  data_key VARCHAR(64) PRIMARY KEY,
+  data JSON NOT NULL,
+  saved_at BIGINT
+);
+```
+
+3. 在 **Connect** 页面复制 **General connection** 连接串（`mysql://...` 格式，含用户名密码）
+4. Cloudflare Pages → **Settings → Environment variables** 添加：
+
+| 变量 | 说明 |
+|---|---|
+| `TIDB_DATABASE_URL` | 第 3 步复制的 TiDB 连接串（机密） |
+| `STORAGE_BACKEND` | 填 `tidb` 启用；不填默认 `supabase` |
+
+5. 保存后手动 **Redeploy**。启用后首页数据经 `/api/tidb` 读取（`functions/api/tidb.js`），后台保存写入 TiDB `sd_data` 表
+
 ## 部署到 Vercel / Netlify
 
 - Vercel：自动识别 `api/` 目录，其余流程同上（环境变量在 Vercel 控制台配置）
