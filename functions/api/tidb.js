@@ -36,7 +36,7 @@ export async function onRequest(context) {
     if (!token) return json({ error: '未登录' }, 401);
     const uid = await verifyUser(env, token);
     if (!uid) return json({ error: '登录态无效' }, 401);
-    const admin = await checkAdmin(env, uid);
+    const admin = await checkAdmin(env, uid, token);
     if (!admin) return json({ error: '无管理员权限' }, 403);
 
     let payload = null;

@@ -858,7 +858,7 @@ async function connectSupabase() {
         updateSyncStatus('synced', '服务器连接成功');
         showToast('服务器连接成功，数据已同步');
       } else {
-        await saveToSupabase();
+        await saveToTiDB();
         updateSyncStatus('synced', '服务器连接成功');
         showToast('服务器连接成功，数据已上传');
       }

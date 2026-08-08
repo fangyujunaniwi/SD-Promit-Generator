@@ -15,10 +15,10 @@ export async function verifyUser(env, token) {
   return null;
 }
 
-export async function checkAdmin(env, uid) {
+export async function checkAdmin(env, uid, token) {
   try {
     const resp = await fetch(env.SUPABASE_URL + '/rest/v1/admins?select=user_id&user_id=eq.' + encodeURIComponent(uid) + '&limit=1', {
-      headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + env.SUPABASE_ANON_KEY }
+      headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token }
     });
     if (resp.ok) {
       const rows = await resp.json();
