@@ -413,8 +413,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
             <span id="storage-status-text">Supabase 云存储模式</span>
           </div>
           <div id="supabase-connection-status" style="margin-top:8px;font-size:13px;color:#666;"></div>
+          <div id="backend-status" style="margin-top:12px;font-size:13px;line-height:2;display:none;">
+            <div>存储后端：<b id="backend-name">-</b></div>
+            <div>Supabase（认证）：<span id="backend-supabase-status">检查中...</span></div>
+            <div>TiDB 配置：<span id="backend-tidb-config">检查中...</span></div>
+            <div>TiDB 连接：<span id="backend-tidb-conn">检查中...</span></div>
+            <div>标签数据：<span id="backend-data-status">检查中...</span></div>
+            <div>建议数量：<span id="backend-suggest-count">-</span></div>
+          </div>
           <div class="form-row" style="margin-top:12px;">
             <button class="btn btn-primary" onclick="connectSupabase()">重新连接</button>
+            <button class="btn" onclick="checkBackendStatus()">刷新状态</button>
           </div>
         </div>
       </div>
@@ -901,11 +910,59 @@ async function connectSupabase() {
     }
 
     updateAdminVisibility();
+    checkBackendStatus();
 
   } catch (err) {
     updateSyncStatus('error', '连接失败');
     showToast('Supabase 连接失败: ' + err.message);
     console.error('Supabase connection error:', err);
+  }
+}
+
+// ==================== 新增：存储后端状态检测（后台连接状态区） ====================
+async function checkBackendStatus() {
+  const box = document.getElementById('backend-status');
+  if (box) box.style.display = 'block';
+  const set = function(id, text, ok) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (ok === undefined) { el.textContent = text; return; }
+    el.innerHTML = ok
+      ? '<span style="color:#22c55e;">✓ ' + text + '</span>'
+      : '<span style="color:#dc3545;">✗ ' + text + '</span>';
+  };
+  const nameEl = document.getElementById('backend-name');
+  if (nameEl) nameEl.textContent = storageBackend === 'tidb' ? 'TiDB Cloud' : 'Supabase';
+  set('backend-supabase-status', '检查中...');
+  set('backend-tidb-config', '检查中...');
+  set('backend-tidb-conn', '检查中...');
+  set('backend-data-status', '检查中...');
+  try {
+    const resp = await fetch(appBasePath + '/api/status?t=' + Date.now(), { cache: 'no-store' });
+    if (!resp.ok) { set('backend-supabase-status', '状态接口 HTTP ' + resp.status, false); return; }
+    const j = await resp.json();
+    set('backend-supabase-status', j.supabaseConfigured ? '已配置' : '未配置', !!j.supabaseConfigured);
+    set('backend-tidb-config', j.tidbConfigured ? '已配置' : '未配置', !!j.tidbConfigured);
+    const sCountEl = document.getElementById('backend-suggest-count');
+    if (sCountEl) sCountEl.textContent = j.suggestionsCount !== undefined && j.suggestionsCount !== null ? j.suggestionsCount : '-';
+    if (j.storageBackend === 'tidb') {
+      if (!j.tidbConfigured) {
+        set('backend-tidb-conn', '未配置 TIDB_DATABASE_URL', false);
+        set('backend-data-status', '无法读取', false);
+      } else if (j.tidbConnected) {
+        set('backend-tidb-conn', '连接正常');
+        const savedTxt = j.savedAt ? ('保存于 ' + new Date(j.savedAt).toLocaleString()) : '尚无保存记录';
+        set('backend-data-status', j.dataFound ? ('有数据（' + savedTxt + '）') : '空表（登录后台保存一次即上传）', true);
+      } else {
+        set('backend-tidb-conn', '连接失败：' + (j.tidbError || '未知错误'), false);
+        set('backend-data-status', '无法读取', false);
+      }
+    } else {
+      set('backend-tidb-conn', '未启用（STORAGE_BACKEND=supabase）');
+      set('backend-data-status', '数据存储于 Supabase');
+    }
+  } catch (e) {
+    set('backend-supabase-status', '状态接口请求失败：' + e.message, false);
   }
 }
 
