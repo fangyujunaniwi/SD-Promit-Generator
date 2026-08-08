@@ -111,7 +111,7 @@ insert into admins (user_id, email) values ('粘贴用户UUID', '你的邮箱@ex
 
 1. Fork本仓库
 2. Cloudflare 控制台 → **Workers & Pages** → **Create** → **Pages** → **Connect to Git** → 选择仓库
-3. 构建设置：Framework preset 选 **None**，Build command 和 Build output directory 留空 → Deploy
+3. 构建设置：Framework preset 选 **None**，**Root directory 填 `sd`**，Build command 和 Build output directory 留空 → Deploy
 4. 部署完成后到 **Settings → Environment variables** 添加：
 
 | 变量 | 说明 |
