@@ -2,7 +2,7 @@
 
 Stable Diffusion 提示词生成器：按分类浏览/搜索标签，组合生成正向与负面提示词，管理员可在后台维护标签库，数据经 Supabase 云端同步。
 
-线上DEMO：https://sdpg.cc.cd/
+线上DEMO：https://niwi.cc/sd/
 
 ## 功能
 
