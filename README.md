@@ -1,6 +1,6 @@
-# SD-Promit-Generator
+# SD-Prompt-Generator
 
-Stable Diffusion 提示词生成器：按分类浏览/搜索标签，组合生成正向与负面提示词，管理员可在后台维护标签库，数据经 Supabase 云端同步。
+Stable Diffusion 提示词生成器：按分类浏览/搜索标签，组合生成正向与负面提示词，管理员可在后台维护标签库，数据云端同步（Supabase 或 TiDB Cloud 二选一）。
 
 线上DEMO：https://niwi.cc/sd/
 
@@ -9,16 +9,24 @@ Stable Diffusion 提示词生成器：按分类浏览/搜索标签，组合生�
 - 标签浏览 / 全局搜索 / 权重调节（0.1–2.0）/ 实时生成提示词
 - 后台管理（仅管理员）：分类增删改色隐藏合并、标签批量新增/编辑/删除
 - 建议反馈（登录用户可提交，管理员可管理）
-- 标签数据云端同步（Supabase），本地缓存兜底
+- 标签数据云端同步（Supabase 或 TiDB 可选），本地缓存兜底
 - Vaptcha V4 人机验证（服务端二次校验，与 Supabase 认证解耦）
+- 移动端适配（底部操作栏、提示词弹层、响应式布局）
 
 ## 目录结构
 
 ```
 index.html                # 主应用（全部前端逻辑与样式）
+package.json              # 根依赖（@tidbcloud/serverless，Pages 构建安装）
 api/                      # Vercel 函数（config / captcha 校验）
 netlify/functions/        # Netlify 函数
 functions/api/            # Cloudflare Pages 函数
+  ├── config.js           #   前端配置（暴露环境变量）
+  ├── captcha.js          #   Vaptcha 服务端校验
+  ├── _data.js            #   云端数据读取（Supabase / TiDB 二选一）
+  ├── _auth.js            #   共享鉴权（Supabase 登录态 + admins 白名单）
+  ├── tidb.js             #   TiDB 标签数据读写（STORAGE_BACKEND=tidb 时使用）
+  └── suggestions.js      #   建议反馈读写（TiDB 模式）
 ```
 
 ## 部署教程（Cloudflare Pages）
@@ -86,7 +94,7 @@ insert into admins (user_id, email) values ('粘贴用户UUID', '你的邮箱@ex
 
 1. Fork本仓库
 2. Cloudflare 控制台 → **Workers & Pages** → **Create** → **Pages** → **Connect to Git** → 选择仓库
-3. 构建设置：Framework preset 选 **None**，Build command 和 Build output directory 留空 → Deploy
+3. 构建设置：Framework preset 选 **None**，**Build command 填 `npm install`**（安装函数依赖，否则构建会报 `Could not resolve "@tidbcloud/serverless"`），Build output directory 留空 → Deploy
 4. 部署完成后到 **Settings → Environment variables** 添加：
 
 | 变量 | 说明 |
@@ -95,9 +103,11 @@ insert into admins (user_id, email) values ('粘贴用户UUID', '你的邮箱@ex
 | `VAPTCHA_VKEY` | Vaptcha 密钥（机密，仅服务端使用） |
 | `SUPABASE_URL` | Supabase 项目地址 |
 | `SUPABASE_ANON_KEY` | Supabase anon 公钥 |
+| `HOME_URL` | （可选）首页/返回按钮链接，留空默认当前站点 |
+| `GITHUB_URL` | （可选）GitHub 按钮链接，留空隐藏按钮 |
 
 5. 每次修改环境变量后需在 **Deployments** 手动 **Redeploy** 生效
-6. 打开网站 → 右上角登录管理员账号 → 后台管理即可编辑标签
+6. 打开网站 → 右上角登录管理员账号 → 后台管理即可编辑标签，建议反馈在后台管理页查看/删除
 
 ### 4. （可选）使用 TiDB Cloud 作为数据库
 
@@ -134,6 +144,26 @@ CREATE TABLE IF NOT EXISTS suggestions (
 
 > 说明：Supabase 仅保留认证职能（登录、邮箱验证、管理员白名单校验），数据全部存于 TiDB
 
+### 5. 部署到 niwi.cc 子路径（可选）
+
+如需挂载到 `https://niwi.cc/sd/`，用 Cloudflare Worker 反向代理 Pages 站点：
+
+```js
+// workers/niwi-router.js（示例，本地文件，不属于本仓库）
+const SD_ORIGIN = 'https://你的pages域名.pages.dev';
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    if (url.pathname.startsWith('/sd')) {
+      return proxy(url, SD_ORIGIN, '/sd');
+    }
+    // ...其他路由
+  }
+};
+```
+
+前端已自动适配：页面路径以 `/sd` 开头时，`/api/*` 请求会自动带 `/sd` 前缀，由 Worker 剥离后转发给 Pages。
+
 ## 部署到 Vercel / Netlify
 
 - Vercel：自动识别 `api/` 目录，其余流程同上（环境变量在 Vercel 控制台配置）
@@ -154,3 +184,6 @@ CREATE TABLE IF NOT EXISTS suggestions (
 
 - **提示 `missing: VAPTCHA_VKEY`**：服务端未读到密钥，检查环境变量并 Redeploy
 - **验证码失败**：Vaptcha 返回 `code 1` 鉴权不过（常见 IP 不一致）、`code 2` token 过期、`code 3/4` token 不存在
+- **构建失败 `Could not resolve "@tidbcloud/serverless"`**：Pages 的 Build command 必须填 `npm install`（Build command 为空时整个构建阶段包括依赖安装都会被跳过）
+- **首页数据空白**：检查 `STORAGE_BACKEND` 对应的后端（`supabase` 或 `tidb`）环境变量与建表是否完成；TiDB 模式未配置 `TIDB_DATABASE_URL` 时接口返回 503
+- **TiDB 模式保存失败**：需在后台登录，登录态由 Supabase 校验、写入鉴权需在 `admins` 白名单内
