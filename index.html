@@ -566,14 +566,29 @@ let vaptchaVid = '';
 let vaptchaObj = null;
 const appBasePath = (location.pathname === '/sd' || location.pathname.startsWith('/sd/')) ? '/sd' : '';
 let captchaApiPath = appBasePath + '/api/captcha';
-// 开源适配：主页按钮跳转地址。
+// 开源适配：主页按钮跳转地址（会被服务端环境变量 HOME_URL 覆盖）。
 // ''    = 自动指向本站根目录（location.origin），跟随部署环境，无需配置
 // 'none' = 隐藏按钮
 // 其它  = 自定义地址（如 'https://example.com/'）
 const HOME_URL = '';
-// 开源适配：GitHub 仓库按钮地址。
+// 开源适配：GitHub 仓库按钮地址（会被服务端环境变量 GITHUB_URL 覆盖）。
 // 填写你的仓库地址（如 'https://github.com/你的账号/仓库名'）；'' 或 'none' = 隐藏按钮
 const GITHUB_URL = '';
+let envHomeUrl = '', envGithubUrl = '';
+function applyExternalLinks() {
+  const homeBtn = document.getElementById('back-to-niwi');
+  if (homeBtn) {
+    const h = envHomeUrl || HOME_URL;
+    if (h === 'none') homeBtn.style.display = 'none';
+    else { homeBtn.style.display = ''; homeBtn.href = h || location.origin; }
+  }
+  const githubBtn = document.getElementById('github-btn');
+  if (githubBtn) {
+    const g = envGithubUrl || GITHUB_URL;
+    if (g && g !== 'none') { githubBtn.style.display = ''; githubBtn.href = g; }
+    else githubBtn.style.display = 'none';
+  }
+}
 let vaptchaScriptLoading = false;
 window.captchaToken = '';
 window.vaptchaVerify = null;
@@ -747,6 +762,9 @@ async function autoLoadEnvConfig() {
       const key = data.SUPABASE_ANON_KEY || data.key || data.anonKey || '';
       const vid = data.VAPTCHA_VID || data.vaptchaVid || data.vid || '';
       if (vid) vaptchaVid = vid;
+      envHomeUrl = data.HOME_URL || '';
+      envGithubUrl = data.GITHUB_URL || '';
+      applyExternalLinks();
       if (url && key) {
         captchaApiPath = endpoints[i].indexOf('/.netlify/functions/config') >= 0 ? appBasePath + '/.netlify/functions/captcha' : appBasePath + '/api/captcha';
         document.getElementById('env-sb-url').value = url;
@@ -1387,17 +1405,8 @@ function importData(input) {
 
 function init() {
   loadData(); renderColorPicker(); renderAll(); updateStats(); updateHiddenToggleVisibility();
+  applyExternalLinks();
   autoLoadEnvConfig();
-  const homeBtn = document.getElementById('back-to-niwi');
-  if (homeBtn) {
-    if (HOME_URL === 'none') homeBtn.style.display = 'none';
-    else homeBtn.href = HOME_URL || location.origin;
-  }
-  const githubBtn = document.getElementById('github-btn');
-  if (githubBtn) {
-    if (GITHUB_URL && GITHUB_URL !== 'none') githubBtn.href = GITHUB_URL;
-    else githubBtn.style.display = 'none';
-  }
 }
 function renderAll() { renderSidebar(); renderTags(); renderSelectedTags(); updatePrompt(); renderAdmin(); }
 
