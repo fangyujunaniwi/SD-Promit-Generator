@@ -324,7 +324,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
         <button class="nav-tab" data-tab="admin" id="admin-tab-btn" style="display:none;" onclick="switchTab('admin')">后台管理</button>
       </div>
       <!-- [MODIFIED] 新增：GitHub 仓库按钮 -->
-      <a class="github-btn" id="github-btn" href="https://github.com/fangyujunaniwi/SD-Prompt-Generator" target="_blank" rel="noopener" title="GitHub 仓库"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg><span class="github-btn-text">GitHub</span></a>
+      <a class="github-btn" id="github-btn" href="#" target="_blank" rel="noopener" title="GitHub 仓库"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg><span class="github-btn-text">GitHub</span></a>
       <!-- [MODIFIED] 新增：用户状态栏 -->
       <div class="user-bar" id="user-bar">
         <span id="user-status">未登录</span>
@@ -517,7 +517,7 @@ fish 鱼
     <button class="btn" onclick="clearAll()">清空</button>
   </div>
 
-  <a id="back-to-niwi" href="https://niwi.cc/" title="主页"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg> 主页</a>
+  <a id="back-to-niwi" href="#" title="主页"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg> 主页</a>
 
   <div class="toast" id="toast"></div>
 </div>
@@ -566,10 +566,14 @@ let vaptchaVid = '';
 let vaptchaObj = null;
 const appBasePath = (location.pathname === '/sd' || location.pathname.startsWith('/sd/')) ? '/sd' : '';
 let captchaApiPath = appBasePath + '/api/captcha';
-// 开源适配：返回按钮目标地址，改为你自己的主页即可；留空（''）则隐藏按钮
-const HOME_URL = 'https://niwi.cc/';
-// 开源适配：GitHub 仓库地址，留空（''）则隐藏按钮
-const GITHUB_URL = 'https://github.com/fangyujunaniwi/SD-Prompt-Generator';
+// 开源适配：主页按钮跳转地址。
+// ''    = 自动指向本站根目录（location.origin），跟随部署环境，无需配置
+// 'none' = 隐藏按钮
+// 其它  = 自定义地址（如 'https://example.com/'）
+const HOME_URL = '';
+// 开源适配：GitHub 仓库按钮地址。
+// 填写你的仓库地址（如 'https://github.com/你的账号/仓库名'）；'' 或 'none' = 隐藏按钮
+const GITHUB_URL = '';
 let vaptchaScriptLoading = false;
 window.captchaToken = '';
 window.vaptchaVerify = null;
@@ -1386,12 +1390,12 @@ function init() {
   autoLoadEnvConfig();
   const homeBtn = document.getElementById('back-to-niwi');
   if (homeBtn) {
-    if (HOME_URL) homeBtn.href = HOME_URL;
-    else homeBtn.style.display = 'none';
+    if (HOME_URL === 'none') homeBtn.style.display = 'none';
+    else homeBtn.href = HOME_URL || location.origin;
   }
   const githubBtn = document.getElementById('github-btn');
   if (githubBtn) {
-    if (GITHUB_URL) githubBtn.href = GITHUB_URL;
+    if (GITHUB_URL && GITHUB_URL !== 'none') githubBtn.href = GITHUB_URL;
     else githubBtn.style.display = 'none';
   }
 }
